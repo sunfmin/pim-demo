@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Common types used across all PIM APIs
+
+// ErrorResponse represents a standard error response
+message ErrorResponse {
+  string code = 1;           // Machine-readable error code (e.g., "PRODUCT_NOT_FOUND")
+  string message = 2;        // Human-readable error message
+  repeated FieldError field_errors = 3;  // Field-specific validation errors
+  string request_id = 4;     // Request ID for tracking
+}
+
+// FieldError represents a validation error for a specific field
+message FieldError {
+  string field = 1;          // Field name (e.g., "sku", "name")
+  string message = 2;        // Error message for this field
+  string code = 3;           // Error code (e.g., "REQUIRED", "INVALID_FORMAT")
+}
+
+// Pagination request parameters
+message PaginationRequest {
+  int32 page = 1;            // Page number (1-based)
+  int32 page_size = 2;       // Items per page (default: 20, max: 100)
+}
+
+// Pagination response metadata
+message PaginationResponse {
+  int32 page = 1;            // Current page number
+  int32 page_size = 2;       // Items per page
+  int32 total_items = 3;     // Total number of items
+  int32 total_pages = 4;     // Total number of pages
+}
+
+// Sort order for list queries
+enum SortOrder {
+  SORT_ORDER_UNSPECIFIED = 0;
+  SORT_ORDER_ASC = 1;
+  SORT_ORDER_DESC = 2;
+}
+
+// Product status enumeration
+enum ProductStatus {
+  PRODUCT_STATUS_UNSPECIFIED = 0;
+  PRODUCT_STATUS_DRAFT = 1;
+  PRODUCT_STATUS_ACTIVE = 2;
+  PRODUCT_STATUS_DISCONTINUED = 3;
+}
+
+// Asset type enumeration
+enum AssetType {
+  ASSET_TYPE_UNSPECIFIED = 0;
+  ASSET_TYPE_IMAGE = 1;
+  ASSET_TYPE_VIDEO = 2;
+  ASSET_TYPE_DOCUMENT = 3;
+}
+
+// Attribute data type enumeration
+enum AttributeDataType {
+  ATTRIBUTE_DATA_TYPE_UNSPECIFIED = 0;
+  ATTRIBUTE_DATA_TYPE_STRING = 1;
+  ATTRIBUTE_DATA_TYPE_NUMBER = 2;
+  ATTRIBUTE_DATA_TYPE_BOOLEAN = 3;
+  ATTRIBUTE_DATA_TYPE_DATE = 4;
+}
+
+// AttributeValue represents a custom attribute value
+message AttributeValue {
+  oneof value {
+    string string_value = 1;
+    double number_value = 2;
+    bool boolean_value = 3;
+    google.protobuf.Timestamp date_value = 4;
+  }
+}
+
+// Metadata for entities (timestamps, audit info)
+message EntityMetadata {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp updated_at = 2;
+  string created_by = 3;     // User ID who created
+  string updated_by = 4;     // User ID who last updated
+}
+

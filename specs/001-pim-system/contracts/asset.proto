@@ -1,0 +1,173 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Asset API - Product asset (images, videos, documents) management
+
+// Asset represents a digital file associated with a product
+message Asset {
+  string id = 1;                              // UUID
+  string organization_id = 2;                 // Organization UUID
+  string product_id = 3;                      // Product UUID
+  string file_name = 4;                       // Original filename
+  string storage_path = 5;                    // Path in storage system
+  string content_type = 6;                    // MIME type
+  int64 file_size = 7;                        // File size in bytes
+  AssetType asset_type = 8;                   // Type of asset
+  bool is_primary = 9;                        // Whether this is the primary image
+  int32 display_order = 10;                   // Sort order for display
+  string alt_text = 11;                       // Alternative text for accessibility
+  string url = 12;                            // Public URL to access asset
+  google.protobuf.Timestamp created_at = 13;
+}
+
+// UploadAssetRequest initiates an asset upload
+message UploadAssetRequest {
+  string product_id = 1;                      // Required
+  string file_name = 2;                       // Required
+  string content_type = 3;                    // Required (e.g., "image/jpeg")
+  int64 file_size = 4;                        // Required (for validation)
+  AssetType asset_type = 5;                   // Required
+  bool is_primary = 6;                        // Optional, defaults to false
+  int32 display_order = 7;                    // Optional, defaults to 0
+  string alt_text = 8;                        // Optional
+  bytes file_data = 9;                        // File content (for small files)
+}
+
+// UploadAssetResponse returns the created asset
+message UploadAssetResponse {
+  Asset asset = 1;
+  string upload_url = 2;                      // For large files, use this URL to upload
+}
+
+// GetAssetRequest retrieves an asset by ID
+message GetAssetRequest {
+  string id = 1;  // Asset UUID
+}
+
+// GetAssetResponse returns the requested asset
+message GetAssetResponse {
+  Asset asset = 1;
+  string download_url = 2;                    // Temporary signed URL for download
+}
+
+// UpdateAssetRequest updates asset metadata
+message UpdateAssetRequest {
+  string id = 1;                              // Asset UUID
+  bool is_primary = 2;                        // Optional
+  int32 display_order = 3;                    // Optional
+  string alt_text = 4;                        // Optional
+  string file_name = 5;                       // Optional, rename file
+}
+
+// UpdateAssetResponse returns the updated asset
+message UpdateAssetResponse {
+  Asset asset = 1;
+}
+
+// DeleteAssetRequest deletes an asset
+message DeleteAssetRequest {
+  string id = 1;  // Asset UUID
+}
+
+// DeleteAssetResponse confirms deletion
+message DeleteAssetResponse {
+  bool success = 1;
+  bool file_deleted = 2;                      // Whether physical file was deleted
+}
+
+// ListAssetsRequest retrieves assets for a product
+message ListAssetsRequest {
+  string product_id = 1;                      // Required
+  PaginationRequest pagination = 2;
+  AssetsFilter filter = 3;
+  AssetsSort sort = 4;
+}
+
+// AssetsFilter defines filtering options
+message AssetsFilter {
+  repeated AssetType asset_types = 1;         // Filter by asset type
+  bool primary_only = 2;                      // Only return primary asset
+}
+
+// AssetsSort defines sorting options
+message AssetsSort {
+  enum SortField {
+    SORT_FIELD_UNSPECIFIED = 0;
+    SORT_FIELD_DISPLAY_ORDER = 1;
+    SORT_FIELD_FILE_NAME = 2;
+    SORT_FIELD_FILE_SIZE = 3;
+    SORT_FIELD_CREATED_AT = 4;
+  }
+  SortField field = 1;
+  SortOrder order = 2;
+}
+
+// ListAssetsResponse returns paginated assets
+message ListAssetsResponse {
+  repeated Asset assets = 1;
+  PaginationResponse pagination = 2;
+}
+
+// SetPrimaryAssetRequest marks an asset as primary
+message SetPrimaryAssetRequest {
+  string id = 1;                              // Asset UUID to mark as primary
+}
+
+// SetPrimaryAssetResponse confirms the change
+message SetPrimaryAssetResponse {
+  Asset asset = 1;
+  string previous_primary_id = 2;             // ID of previous primary asset (if any)
+}
+
+// ReorderAssetsRequest updates display order for multiple assets
+message ReorderAssetsRequest {
+  repeated AssetOrder orders = 1;
+}
+
+// AssetOrder represents new display order for an asset
+message AssetOrder {
+  string asset_id = 1;
+  int32 display_order = 2;
+}
+
+// ReorderAssetsResponse confirms reordering
+message ReorderAssetsResponse {
+  repeated Asset assets = 1;
+  int32 updated_count = 2;
+}
+
+// BulkUploadAssetsRequest uploads multiple assets at once
+message BulkUploadAssetsRequest {
+  string product_id = 1;
+  repeated UploadAssetRequest assets = 2;
+}
+
+// BulkUploadAssetsResponse returns all uploaded assets
+message BulkUploadAssetsResponse {
+  repeated Asset assets = 1;
+  int32 uploaded_count = 2;
+  repeated string failed_files = 3;           // Files that failed to upload
+}
+
+// GetAssetStatsRequest gets statistics about assets
+message GetAssetStatsRequest {
+  string product_id = 1;                      // Optional, stats for specific product
+  string organization_id = 2;                 // Optional, organization-wide stats
+}
+
+// GetAssetStatsResponse returns asset statistics
+message GetAssetStatsResponse {
+  int32 total_assets = 1;
+  int32 total_images = 2;
+  int32 total_videos = 3;
+  int32 total_documents = 4;
+  int64 total_storage_bytes = 5;
+  double average_file_size_mb = 6;
+}
+

@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Category API - Hierarchical category management
+
+// Category represents a product category
+message Category {
+  string id = 1;                              // UUID
+  string organization_id = 2;                 // Organization UUID
+  string parent_id = 3;                       // Parent category UUID (empty for root)
+  string name = 4;                            // Category name
+  string slug = 5;                            // URL-friendly identifier
+  string description = 6;                     // Category description
+  int32 display_order = 7;                    // Sort order within parent
+  bool is_active = 8;                         // Whether category is visible
+  int32 product_count = 9;                    // Number of products in this category
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// CategoryTree represents a category with its children
+message CategoryTree {
+  Category category = 1;
+  repeated CategoryTree children = 2;
+  int32 depth = 3;                            // Depth in hierarchy (0 for root)
+}
+
+// CreateCategoryRequest creates a new category
+message CreateCategoryRequest {
+  string parent_id = 1;                       // Optional, empty for root category
+  string name = 2;                            // Required
+  string slug = 3;                            // Optional, auto-generated if empty
+  string description = 4;                     // Optional
+  int32 display_order = 5;                    // Optional, defaults to 0
+  bool is_active = 6;                         // Optional, defaults to true
+}
+
+// CreateCategoryResponse returns the created category
+message CreateCategoryResponse {
+  Category category = 1;
+}
+
+// GetCategoryRequest retrieves a category by ID
+message GetCategoryRequest {
+  string id = 1;  // Category UUID
+}
+
+// GetCategoryResponse returns the requested category
+message GetCategoryResponse {
+  Category category = 1;
+  repeated Category ancestors = 2;            // Parent hierarchy (root to immediate parent)
+  repeated Category children = 3;             // Direct children
+}
+
+// UpdateCategoryRequest updates an existing category
+message UpdateCategoryRequest {
+  string id = 1;                              // Category UUID
+  string name = 2;                            // Optional
+  string slug = 3;                            // Optional
+  string description = 4;                     // Optional
+  int32 display_order = 5;                    // Optional
+  bool is_active = 6;                         // Optional
+  string parent_id = 7;                       // Optional, move to different parent
+}
+
+// UpdateCategoryResponse returns the updated category
+message UpdateCategoryResponse {
+  Category category = 1;
+}
+
+// DeleteCategoryRequest deletes a category
+message DeleteCategoryRequest {
+  string id = 1;                              // Category UUID
+  bool force = 2;                             // If true, delete even if has products/children
+  string reassign_to_category_id = 3;         // Optional, reassign products to this category
+}
+
+// DeleteCategoryResponse confirms deletion
+message DeleteCategoryResponse {
+  bool success = 1;
+  int32 products_reassigned = 2;              // Number of products reassigned
+  int32 subcategories_deleted = 3;            // Number of subcategories deleted
+}
+
+// ListCategoriesRequest retrieves categories with filtering
+message ListCategoriesRequest {
+  PaginationRequest pagination = 1;
+  CategoriesFilter filter = 2;
+  CategoriesSort sort = 3;
+}
+
+// CategoriesFilter defines filtering options
+message CategoriesFilter {
+  string parent_id = 1;                       // Filter by parent (empty for root only)
+  bool is_active = 2;                         // Filter by active status
+  bool include_empty = 3;                     // Include categories with no products
+}
+
+// CategoriesSort defines sorting options
+message CategoriesSort {
+  enum SortField {
+    SORT_FIELD_UNSPECIFIED = 0;
+    SORT_FIELD_NAME = 1;
+    SORT_FIELD_DISPLAY_ORDER = 2;
+    SORT_FIELD_CREATED_AT = 3;
+    SORT_FIELD_PRODUCT_COUNT = 4;
+  }
+  SortField field = 1;
+  SortOrder order = 2;
+}
+
+// ListCategoriesResponse returns paginated categories
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+  PaginationResponse pagination = 2;
+}
+
+// GetCategoryTreeRequest retrieves full category hierarchy
+message GetCategoryTreeRequest {
+  string root_id = 1;                         // Optional, start from this category (empty for all roots)
+  int32 max_depth = 2;                        // Optional, limit tree depth (0 for unlimited)
+  bool active_only = 3;                       // Optional, only include active categories
+}
+
+// GetCategoryTreeResponse returns hierarchical category tree
+message GetCategoryTreeResponse {
+  repeated CategoryTree trees = 1;            // List of root categories with children
+}
+
+// MoveCategoryRequest moves a category to a different parent
+message MoveCategoryRequest {
+  string id = 1;                              // Category UUID to move
+  string new_parent_id = 2;                   // New parent UUID (empty for root)
+  int32 display_order = 3;                    // Optional, position under new parent
+}
+
+// MoveCategoryResponse confirms the move
+message MoveCategoryResponse {
+  Category category = 1;
+}
+
+// GetCategoryPathRequest gets the full path to a category
+message GetCategoryPathRequest {
+  string id = 1;  // Category UUID
+}
+
+// GetCategoryPathResponse returns the category path
+message GetCategoryPathResponse {
+  repeated Category path = 1;                 // From root to specified category
+  string path_string = 2;                     // Human-readable path (e.g., "Electronics > Computers > Laptops")
+}
+

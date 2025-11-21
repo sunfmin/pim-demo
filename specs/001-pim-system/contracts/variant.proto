@@ -1,0 +1,178 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Variant API - Product variant management
+
+// ProductVariant represents a specific configuration of a product
+message ProductVariant {
+  string id = 1;                              // UUID
+  string organization_id = 2;                 // Organization UUID
+  string parent_product_id = 3;               // Parent product UUID
+  string variant_sku = 4;                     // Variant SKU (unique)
+  map<string, AttributeValue> variant_attributes = 5;  // Variant-specific attributes
+  int64 price_adjustment = 6;                 // Price difference from parent (cents)
+  int32 inventory_quantity = 7;               // Available stock
+  bool is_active = 8;                         // Whether variant is available
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  
+  // Computed fields (not stored)
+  int64 final_price = 11;                     // parent.base_price + price_adjustment
+  string parent_sku = 12;                     // Parent product SKU
+  string parent_name = 13;                    // Parent product name
+}
+
+// VariantAttributeDefinition defines possible values for a variant attribute
+message VariantAttributeDefinition {
+  string attribute_name = 1;                  // e.g., "Size", "Color"
+  repeated string possible_values = 2;        // e.g., ["S", "M", "L"] or ["Red", "Blue", "Green"]
+}
+
+// CreateVariantRequest creates a single product variant
+message CreateVariantRequest {
+  string parent_product_id = 1;               // Required
+  string variant_sku = 2;                     // Required, unique
+  map<string, AttributeValue> variant_attributes = 3;  // Required
+  int64 price_adjustment = 4;                 // Optional, defaults to 0
+  int32 inventory_quantity = 5;               // Optional, defaults to 0
+  bool is_active = 6;                         // Optional, defaults to true
+}
+
+// CreateVariantResponse returns the created variant
+message CreateVariantResponse {
+  ProductVariant variant = 1;
+}
+
+// CreateVariantsRequest creates multiple variants at once
+message CreateVariantsRequest {
+  string parent_product_id = 1;
+  repeated CreateVariantRequest variants = 2;
+}
+
+// CreateVariantsResponse returns all created variants
+message CreateVariantsResponse {
+  repeated ProductVariant variants = 1;
+  int32 created_count = 2;
+}
+
+// GenerateVariantsRequest auto-generates variants from attribute combinations
+message GenerateVariantsRequest {
+  string parent_product_id = 1;
+  repeated VariantAttributeDefinition attributes = 2;  // e.g., Size: [S, M, L], Color: [Red, Blue]
+  int64 default_price_adjustment = 3;         // Optional, same price adjustment for all
+  int32 default_inventory = 4;                // Optional, default inventory for all
+  string sku_pattern = 5;                     // Optional, e.g., "{parent_sku}-{size}-{color}"
+}
+
+// GenerateVariantsResponse returns generated variants
+message GenerateVariantsResponse {
+  repeated ProductVariant variants = 1;
+  int32 generated_count = 2;
+  repeated string generated_skus = 3;
+}
+
+// GetVariantRequest retrieves a variant by ID
+message GetVariantRequest {
+  string id = 1;  // Variant UUID
+}
+
+// GetVariantResponse returns the requested variant
+message GetVariantResponse {
+  ProductVariant variant = 1;
+}
+
+// UpdateVariantRequest updates an existing variant
+message UpdateVariantRequest {
+  string id = 1;                              // Variant UUID
+  map<string, AttributeValue> variant_attributes = 2;  // Optional
+  int64 price_adjustment = 3;                 // Optional
+  int32 inventory_quantity = 4;               // Optional
+  bool is_active = 5;                         // Optional
+}
+
+// UpdateVariantResponse returns the updated variant
+message UpdateVariantResponse {
+  ProductVariant variant = 1;
+}
+
+// DeleteVariantRequest deletes a variant
+message DeleteVariantRequest {
+  string id = 1;  // Variant UUID
+}
+
+// DeleteVariantResponse confirms deletion
+message DeleteVariantResponse {
+  bool success = 1;
+}
+
+// ListVariantsRequest retrieves variants for a product
+message ListVariantsRequest {
+  string parent_product_id = 1;               // Required
+  PaginationRequest pagination = 2;
+  VariantsFilter filter = 3;
+  VariantsSort sort = 4;
+}
+
+// VariantsFilter defines filtering options
+message VariantsFilter {
+  bool is_active = 1;                         // Filter by active status
+  int32 min_inventory = 2;                    // Minimum inventory level
+  int32 max_inventory = 3;                    // Maximum inventory level
+  map<string, AttributeValue> variant_attributes = 4;  // Filter by specific attribute values
+}
+
+// VariantsSort defines sorting options
+message VariantsSort {
+  enum SortField {
+    SORT_FIELD_UNSPECIFIED = 0;
+    SORT_FIELD_VARIANT_SKU = 1;
+    SORT_FIELD_PRICE = 2;
+    SORT_FIELD_INVENTORY = 3;
+    SORT_FIELD_CREATED_AT = 4;
+  }
+  SortField field = 1;
+  SortOrder order = 2;
+}
+
+// ListVariantsResponse returns paginated variants
+message ListVariantsResponse {
+  repeated ProductVariant variants = 1;
+  PaginationResponse pagination = 2;
+}
+
+// UpdateInventoryRequest updates inventory for multiple variants
+message UpdateInventoryRequest {
+  repeated InventoryUpdate updates = 1;
+}
+
+// InventoryUpdate represents a single inventory change
+message InventoryUpdate {
+  string variant_id = 1;
+  int32 quantity_change = 2;                  // Positive for add, negative for subtract
+  string reason = 3;                          // e.g., "sale", "restock", "damaged"
+}
+
+// UpdateInventoryResponse confirms inventory updates
+message UpdateInventoryResponse {
+  repeated ProductVariant updated_variants = 1;
+  int32 updated_count = 2;
+}
+
+// BulkUpdatePriceRequest updates price adjustment for multiple variants
+message BulkUpdatePriceRequest {
+  repeated string variant_ids = 1;
+  int64 price_adjustment = 2;                 // New price adjustment for all
+}
+
+// BulkUpdatePriceResponse confirms price updates
+message BulkUpdatePriceResponse {
+  repeated ProductVariant updated_variants = 1;
+  int32 updated_count = 2;
+}
+

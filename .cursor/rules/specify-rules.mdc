@@ -1,0 +1,29 @@
+# pim-demo Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-11-22
+
+## Active Technologies
+
+- Go 1.21+ (latest stable recommended) (001-pim-system)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+# Add commands for Go 1.21+ (latest stable recommended)
+
+## Code Style
+
+Go 1.21+ (latest stable recommended): Follow standard conventions
+
+## Recent Changes
+
+- 001-pim-system: Added Go 1.21+ (latest stable recommended)
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

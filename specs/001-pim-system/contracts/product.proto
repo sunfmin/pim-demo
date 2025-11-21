@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+// Product API - Core product management operations
+
+// Product represents a complete product entity
+message Product {
+  string id = 1;                              // UUID
+  string organization_id = 2;                 // Organization UUID
+  string sku = 3;                             // Stock Keeping Unit
+  string name = 4;                            // Product name
+  string description = 5;                     // Product description
+  int64 base_price = 6;                       // Price in cents
+  ProductStatus status = 7;                   // Product status
+  map<string, AttributeValue> attributes = 8; // Custom attributes
+  repeated string category_ids = 9;           // Associated category IDs
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+// CreateProductRequest creates a new product
+message CreateProductRequest {
+  string sku = 1;                             // Required, unique per organization
+  string name = 2;                            // Required
+  string description = 3;                     // Optional
+  int64 base_price = 4;                       // Required, in cents
+  ProductStatus status = 5;                   // Optional, defaults to DRAFT
+  map<string, AttributeValue> attributes = 6; // Optional custom attributes
+  repeated string category_ids = 7;           // Optional category assignments
+}
+
+// CreateProductResponse returns the created product
+message CreateProductResponse {
+  Product product = 1;
+}
+
+// GetProductRequest retrieves a product by ID
+message GetProductRequest {
+  string id = 1;  // Product UUID
+}
+
+// GetProductResponse returns the requested product
+message GetProductResponse {
+  Product product = 1;
+}
+
+// UpdateProductRequest updates an existing product
+message UpdateProductRequest {
+  string id = 1;                              // Product UUID
+  string name = 2;                            // Optional
+  string description = 3;                     // Optional
+  int64 base_price = 4;                       // Optional
+  ProductStatus status = 5;                   // Optional
+  map<string, AttributeValue> attributes = 6; // Optional, replaces all attributes
+  repeated string category_ids = 7;           // Optional, replaces all category assignments
+}
+
+// UpdateProductResponse returns the updated product
+message UpdateProductResponse {
+  Product product = 1;
+}
+
+// DeleteProductRequest soft-deletes a product
+message DeleteProductRequest {
+  string id = 1;  // Product UUID
+}
+
+// DeleteProductResponse confirms deletion
+message DeleteProductResponse {
+  bool success = 1;
+  google.protobuf.Timestamp deleted_at = 2;
+}
+
+// ListProductsRequest retrieves products with filtering and pagination
+message ListProductsRequest {
+  PaginationRequest pagination = 1;
+  ProductsFilter filter = 2;
+  ProductsSort sort = 3;
+}
+
+// ProductsFilter defines filtering options for product listing
+message ProductsFilter {
+  repeated ProductStatus statuses = 1;        // Filter by status
+  repeated string category_ids = 2;           // Filter by categories
+  int64 min_price = 3;                        // Minimum price filter (cents)
+  int64 max_price = 4;                        // Maximum price filter (cents)
+  string search_query = 5;                    // Full-text search query
+}
+
+// ProductsSort defines sorting options for product listing
+message ProductsSort {
+  enum SortField {
+    SORT_FIELD_UNSPECIFIED = 0;
+    SORT_FIELD_NAME = 1;
+    SORT_FIELD_SKU = 2;
+    SORT_FIELD_PRICE = 3;
+    SORT_FIELD_CREATED_AT = 4;
+    SORT_FIELD_UPDATED_AT = 5;
+  }
+  SortField field = 1;
+  SortOrder order = 2;
+}
+
+// ListProductsResponse returns paginated products
+message ListProductsResponse {
+  repeated Product products = 1;
+  PaginationResponse pagination = 2;
+}
+
+// SearchProductsRequest performs full-text search
+message SearchProductsRequest {
+  string query = 1;                           // Search query
+  PaginationRequest pagination = 2;
+  repeated string category_ids = 3;           // Optional category filter
+  repeated ProductStatus statuses = 4;        // Optional status filter
+}
+
+// SearchProductsResponse returns search results
+message SearchProductsResponse {
+  repeated ProductSearchResult results = 1;
+  PaginationResponse pagination = 2;
+}
+
+// ProductSearchResult includes relevance scoring
+message ProductSearchResult {
+  Product product = 1;
+  float relevance_score = 2;                  // Search relevance (0-1)
+  string match_snippet = 3;                   // Highlighted match text
+}
+
+// AssignCategoriesToProductRequest assigns categories to a product
+message AssignCategoriesToProductRequest {
+  string product_id = 1;
+  repeated string category_ids = 2;
+}
+
+// AssignCategoriesToProductResponse confirms assignment
+message AssignCategoriesToProductResponse {
+  Product product = 1;
+}
+
+// RemoveCategoriesFromProductRequest removes category assignments
+message RemoveCategoriesFromProductRequest {
+  string product_id = 1;
+  repeated string category_ids = 2;
+}
+
+// RemoveCategoriesFromProductResponse confirms removal
+message RemoveCategoriesFromProductResponse {
+  Product product = 1;
+}
+
