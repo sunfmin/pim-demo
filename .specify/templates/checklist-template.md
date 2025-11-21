@@ -32,6 +32,65 @@
 - [ ] CHK005 Item with specific criteria
 - [ ] CHK006 Final item in this category
 
+## Error Testing *(MANDATORY per Constitution Principle IX)*
+
+- [ ] CHK-ERR-001 Verify ALL sentinel errors in `services/errors.go` have test cases
+- [ ] CHK-ERR-002 Verify ALL HTTP error codes in `handlers/error_codes.go` have test cases
+- [ ] CHK-ERR-003 Verify error wrapping uses `fmt.Errorf("%w", err)` (NOT `%v`)
+- [ ] CHK-ERR-004 Verify error checking uses `errors.Is()` (NOT string comparison)
+- [ ] CHK-ERR-005 Verify complete error flow tested: Service → Handler → Client
+- [ ] CHK-ERR-006 Verify context errors tested (cancellation, timeout)
+- [ ] CHK-ERR-007 Run error test suite: `go test -v -run "TestAll.*Errors"`
+- [ ] CHK-ERR-008 Confirm 100% error test coverage (no untested errors)
+
+## Continuous Test Verification *(MANDATORY per Constitution Principle XI)*
+
+**Note**: AI agents MUST run tests locally after ALL code changes
+
+- [ ] CHK-TEST-001 Verify AI agent ran full test suite after implementation
+- [ ] CHK-TEST-002 Verify all tests pass (green) - NO task completion with failing tests
+- [ ] CHK-TEST-003 Verify tests with race detector pass (concurrency safety)
+- [ ] CHK-TEST-004 Verify test coverage is maintained or improved
+- [ ] CHK-TEST-005 Verify AI agent ran tests after refactoring changes
+- [ ] CHK-TEST-006 Verify integration tests pass with real database (testcontainers)
+- [ ] CHK-TEST-007 Verify no tests were skipped or disabled to complete task
+- [ ] CHK-TEST-008 Verify flaky tests are fixed (not ignored)
+- [ ] CHK-TEST-009 Verify test failures were reported and fixed
+- [ ] CHK-TEST-010 Verify task only marked complete after all tests passed
+
+## Root Cause Tracing *(MANDATORY per Constitution Principle XII)*
+
+**Note**: AI agents MUST trace problems to source and fix there, NOT work around symptoms
+
+- [ ] CHK-DEBUG-001 Verify bugs have documented root cause analysis
+- [ ] CHK-DEBUG-002 Verify fixes address root causes, not symptoms
+- [ ] CHK-DEBUG-003 Verify NO test cases were removed to make tests pass
+- [ ] CHK-DEBUG-004 Verify NO test expectations were weakened to accommodate bugs
+- [ ] CHK-DEBUG-005 Verify NO workarounds added instead of proper fixes
+- [ ] CHK-DEBUG-006 Verify problem traced backward through call chain to original trigger
+- [ ] CHK-DEBUG-007 Verify fix implemented at source location (not symptom location)
+- [ ] CHK-DEBUG-008 Verify tests validate correct behavior (not broken behavior)
+- [ ] CHK-DEBUG-009 Verify flaky tests are fixed at root cause (not skipped)
+- [ ] CHK-DEBUG-010 Verify commit message documents root cause trace for bug fixes
+- [ ] CHK-DEBUG-011 Verify no "quick fixes" that lack understanding
+- [ ] CHK-DEBUG-012 Verify AI agent resisted temptation to "just make it work"
+
+**Root Cause Tracing Process**:
+1. Document symptom clearly
+2. Trace backward through call chain
+3. Identify original trigger (root cause)
+4. Fix at source
+5. Verify fix with tests
+6. Document tracing process
+
+**Anti-Patterns to Reject**:
+- ❌ Removing failing test cases
+- ❌ Changing test expectations to match broken behavior
+- ❌ Adding `t.Skip()` to flaky tests
+- ❌ Relaxing assertions ("at least" instead of "exactly")
+- ❌ Adding conditional workarounds
+- ❌ Catching and ignoring errors without understanding
+
 ## Notes
 
 - Check items off as completed: `[x]`
