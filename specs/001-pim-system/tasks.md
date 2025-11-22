@@ -35,18 +35,18 @@ description: "Implementation tasks for PIM System feature"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Initialize Go module: `go mod init github.com/yourorg/pim-demo`
-- [ ] T002 [P] Install GORM dependencies: `go get -u gorm.io/gorm gorm.io/driver/postgres`
-- [ ] T003 [P] Install Protocol Buffers dependencies: `go get -u google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf/testing/protocmp`
-- [ ] T004 [P] Install OpenTracing dependency: `go get -u github.com/opentracing/opentracing-go`
-- [ ] T005 [P] Install testcontainers-go: `go get -u github.com/testcontainers/testcontainers-go github.com/testcontainers/testcontainers-go/modules/postgres`
-- [ ] T006 [P] Install go-cmp for test assertions: `go get -u github.com/google/go-cmp/cmp`
-- [ ] T007 [P] Install UUID library: `go get -u github.com/google/uuid`
-- [ ] T008 Create project structure per plan.md: `api/`, `api/gen/`, `services/`, `handlers/`, `internal/models/`, `internal/middleware/`, `internal/config/`, `internal/storage/`, `cmd/api/`, `tests/integration/`, `tests/testutil/`
-- [ ] T009 [P] Copy protobuf definitions from `specs/001-pim-system/contracts/` to `api/v1/`
-- [ ] T010 Generate protobuf Go code: `protoc --proto_path=api/v1 --go_out=api/gen/v1 --go_opt=paths=source_relative api/v1/*.proto`
-- [ ] T011 [P] Create `.env.example` file with database connection template
-- [ ] T012 [P] Create `Makefile` with targets: proto-gen, test, test-race, lint, fmt, migrate, dev, build
+- [x] T001 Initialize Go module: `go mod init github.com/yourorg/pim-demo`
+- [x] T002 [P] Install GORM dependencies: `go get -u gorm.io/gorm gorm.io/driver/postgres`
+- [x] T003 [P] Install Protocol Buffers dependencies: `go get -u google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf/testing/protocmp`
+- [x] T004 [P] Install OpenTracing dependency: `go get -u github.com/opentracing/opentracing-go`
+- [x] T005 [P] Install testcontainers-go: `go get -u github.com/testcontainers/testcontainers-go github.com/testcontainers/testcontainers-go/modules/postgres`
+- [x] T006 [P] Install go-cmp for test assertions: `go get -u github.com/google/go-cmp/cmp`
+- [x] T007 [P] Install UUID library: `go get -u github.com/google/uuid`
+- [x] T008 Create project structure per plan.md: `api/`, `api/gen/`, `services/`, `handlers/`, `internal/models/`, `internal/middleware/`, `internal/config/`, `internal/storage/`, `cmd/api/`, `tests/integration/`, `tests/testutil/`
+- [x] T009 [P] Copy protobuf definitions from `specs/001-pim-system/contracts/` to `api/v1/`
+- [x] T010 Generate protobuf Go code: `protoc --proto_path=api/v1 --go_out=api/gen/v1 --go_opt=paths=source_relative api/v1/*.proto`
+- [x] T011 [P] Create `.env.example` file with database connection template
+- [x] T012 [P] Create `Makefile` with targets: proto-gen, test, test-race, lint, fmt, migrate, dev, build
 
 ---
 
@@ -56,23 +56,23 @@ description: "Implementation tasks for PIM System feature"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T013 Create database configuration in `internal/config/config.go`
-- [ ] T014 [P] Create GORM database connection pool in `internal/config/database.go` with context support
-- [ ] T015 [P] Create Organization GORM model in `internal/models/organization.go` (base for multi-tenancy)
-- [ ] T016 Implement AutoMigrate for initial schema in `services/migrations.go`
-- [ ] T017 [P] Create testcontainers database helper in `tests/testutil/database.go` (setup, teardown, truncation)
-- [ ] T018 [P] Create table truncation helper in `tests/testutil/database.go` (reverse dependency order with CASCADE)
-- [ ] T019 [P] Create sentinel error definitions in `services/errors.go` (ErrProductNotFound, ErrDuplicateSKU, ErrCategoryNotFound, ErrInvalidProduct, ErrProductHasDependencies, ErrVariantNotFound, ErrAssetNotFound, ErrInvalidAssetFormat, ErrAssetTooLarge, ErrImportFailed, ErrUnauthorized, ErrOrganizationMismatch)
-- [ ] T020 [P] Create HTTP error code definitions in `handlers/error_codes.go` (singleton struct with mappings to sentinel errors)
-- [ ] T021 [P] Create HTTP response helpers in `handlers/response.go` (JSON encoding, error handling with HandleServiceError())
-- [ ] T022 [P] Setup HTTP router using net/http ServeMux in `cmd/api/main.go`
-- [ ] T023 [P] Implement OpenTracing middleware in `internal/middleware/tracing.go` (extract/start span, set tags)
-- [ ] T024 [P] Implement logging middleware in `internal/middleware/logging.go`
-- [ ] T025 [P] Implement recovery middleware in `internal/middleware/recovery.go`
-- [ ] T026 [P] Implement tenant context middleware in `internal/middleware/tenant.go` (extract organization_id from auth)
-- [ ] T027 [P] Create filesystem storage implementation in `internal/storage/filesystem.go` (Save, Get, Delete methods)
-- [ ] T028 Create main application entry point in `cmd/api/main.go` (wire dependencies, start server)
-- [ ] T029 Create health check endpoint handler in `handlers/health_handler.go`
+- [x] T013 Create database configuration in `internal/config/config.go`
+- [x] T014 [P] Create GORM database connection pool in `internal/config/database.go` with context support
+- [x] T015 [P] Create Organization GORM model in `internal/models/organization.go` (base for multi-tenancy)
+- [x] T016 Implement AutoMigrate for initial schema in `services/migrations.go`
+- [x] T017 [P] Create testcontainers database helper in `tests/testutil/database.go` (setup, teardown, truncation)
+- [x] T018 [P] Create table truncation helper in `tests/testutil/database.go` (reverse dependency order with CASCADE)
+- [x] T019 [P] Create sentinel error definitions in `services/errors.go` (ErrProductNotFound, ErrDuplicateSKU, ErrCategoryNotFound, ErrInvalidProduct, ErrProductHasDependencies, ErrVariantNotFound, ErrAssetNotFound, ErrInvalidAssetFormat, ErrAssetTooLarge, ErrImportFailed, ErrUnauthorized, ErrOrganizationMismatch)
+- [x] T020 [P] Create HTTP error code definitions in `handlers/error_codes.go` (singleton struct with mappings to sentinel errors)
+- [x] T021 [P] Create HTTP response helpers in `handlers/response.go` (JSON encoding, error handling with HandleServiceError())
+- [x] T022 [P] Setup HTTP router using net/http ServeMux in `cmd/api/main.go`
+- [x] T023 [P] Implement OpenTracing middleware in `internal/middleware/tracing.go` (extract/start span, set tags)
+- [x] T024 [P] Implement logging middleware in `internal/middleware/logging.go`
+- [x] T025 [P] Implement recovery middleware in `internal/middleware/recovery.go`
+- [x] T026 [P] Implement tenant context middleware in `internal/middleware/tenant.go` (extract organization_id from auth)
+- [x] T027 [P] Create filesystem storage implementation in `internal/storage/filesystem.go` (Save, Get, Delete methods)
+- [x] T028 Create main application entry point in `cmd/api/main.go` (wire dependencies, start server)
+- [x] T029 Create health check endpoint handler in `handlers/health_handler.go`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

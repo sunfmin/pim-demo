@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package pim.v1;
+
+option go_package = "github.com/yourorg/pim-demo/api/gen/v1;pimv1";
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "product.proto";
+
+// Import/Export API - Bulk data operations
+
+// ImportJobStatus represents the state of an import job
+enum ImportJobStatus {
+  IMPORT_JOB_STATUS_UNSPECIFIED = 0;
+  IMPORT_JOB_STATUS_PENDING = 1;
+  IMPORT_JOB_STATUS_PROCESSING = 2;
+  IMPORT_JOB_STATUS_COMPLETED = 3;
+  IMPORT_JOB_STATUS_FAILED = 4;
+  IMPORT_JOB_STATUS_PARTIALLY_COMPLETED = 5;
+}
+
+// ImportMode defines how to handle existing records
+enum ImportMode {
+  IMPORT_MODE_UNSPECIFIED = 0;
+  IMPORT_MODE_CREATE_ONLY = 1;               // Only create new records, fail on duplicates
+  IMPORT_MODE_UPDATE_ONLY = 2;               // Only update existing, fail on new
+  IMPORT_MODE_CREATE_OR_UPDATE = 3;          // Create new or update existing (upsert)
+}
+
+// ImportProductsRequest starts a product import job
+message ImportProductsRequest {
+  bytes csv_data = 1;                        // CSV file content (for small files)
+  string csv_url = 2;                        // URL to CSV file (for large files)
+  ImportMode mode = 3;                       // Import mode
+  bool validate_only = 4;                    // If true, only validate without importing
+  map<string, string> column_mapping = 5;    // Custom column name mapping
+}
+
+// ImportProductsResponse returns the import job details
+message ImportProductsResponse {
+  string job_id = 1;                         // Job UUID for tracking
+  ImportJobStatus status = 2;
+  bool is_async = 3;                         // If true, check status via GetImportJobStatus
+  ImportResult result = 4;                   // Immediate result (for small/sync imports)
+}
+
+// ImportResult contains the results of an import operation
+message ImportResult {
+  int32 total_rows = 1;
+  int32 successful_rows = 2;
+  int32 failed_rows = 3;
+  int32 skipped_rows = 4;
+  repeated ImportError errors = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  double duration_seconds = 8;
+}
+
+// ImportError represents an error for a specific row
+message ImportError {
+  int32 row_number = 1;
+  string sku = 2;                            // SKU from the row (if available)
+  string error_code = 3;
+  string error_message = 4;
+  map<string, string> field_errors = 5;      // Field-specific errors
+}
+
+// GetImportJobStatusRequest retrieves import job status
+message GetImportJobStatusRequest {
+  string job_id = 1;
+}
+
+// GetImportJobStatusResponse returns current job status
+message GetImportJobStatusResponse {
+  string job_id = 1;
+  ImportJobStatus status = 2;
+  int32 progress_percentage = 3;
+  int32 rows_processed = 4;
+  int32 total_rows = 5;
+  ImportResult result = 6;                   // Only available when completed
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ListImportJobsRequest retrieves import job history
+message ListImportJobsRequest {
+  PaginationRequest pagination = 1;
+  ImportJobsFilter filter = 2;
+}
+
+// ImportJobsFilter defines filtering options
+message ImportJobsFilter {
+  repeated ImportJobStatus statuses = 1;
+  google.protobuf.Timestamp start_date = 2;
+  google.protobuf.Timestamp end_date = 3;
+}
+
+// ImportJob represents an import job record
+message ImportJob {
+  string id = 1;
+  string organization_id = 2;
+  ImportJobStatus status = 3;
+  ImportMode mode = 4;
+  int32 total_rows = 5;
+  int32 processed_rows = 6;
+  string created_by = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+}
+
+// ListImportJobsResponse returns paginated import jobs
+message ListImportJobsResponse {
+  repeated ImportJob jobs = 1;
+  PaginationResponse pagination = 2;
+}
+
+// ExportProductsRequest initiates a product export
+message ExportProductsRequest {
+  ExportFormat format = 1;
+  ProductsFilter filter = 2;                 // Reuse from product.proto
+  repeated string column_names = 3;          // Columns to include (empty = all)
+  bool include_variants = 4;                 // Include variant data
+  bool include_categories = 5;               // Include category names
+}
+
+// ExportFormat defines the export file format
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_CSV = 1;
+  EXPORT_FORMAT_JSON = 2;
+  EXPORT_FORMAT_XLSX = 3;                    // Future enhancement
+}
+
+// ExportProductsResponse returns the export file or job ID
+message ExportProductsResponse {
+  string job_id = 1;                         // For async exports
+  bytes file_data = 2;                       // For small/sync exports
+  string download_url = 3;                   // Temporary URL to download file
+  string file_name = 4;
+  int64 file_size = 5;
+  int32 product_count = 6;
+}
+
+// GetExportJobStatusRequest retrieves export job status
+message GetExportJobStatusRequest {
+  string job_id = 1;
+}
+
+// ExportJobStatus represents the state of an export job
+enum ExportJobStatus {
+  EXPORT_JOB_STATUS_UNSPECIFIED = 0;
+  EXPORT_JOB_STATUS_PENDING = 1;
+  EXPORT_JOB_STATUS_PROCESSING = 2;
+  EXPORT_JOB_STATUS_COMPLETED = 3;
+  EXPORT_JOB_STATUS_FAILED = 4;
+}
+
+// GetExportJobStatusResponse returns current export job status
+message GetExportJobStatusResponse {
+  string job_id = 1;
+  ExportJobStatus status = 2;
+  int32 progress_percentage = 3;
+  int32 products_processed = 4;
+  int32 total_products = 5;
+  string download_url = 6;                   // Available when completed
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+}
+
+// ValidateImportRequest validates CSV without importing
+message ValidateImportRequest {
+  bytes csv_data = 1;
+  map<string, string> column_mapping = 2;
+}
+
+// ValidateImportResponse returns validation results
+message ValidateImportResponse {
+  bool is_valid = 1;
+  int32 total_rows = 2;
+  int32 valid_rows = 3;
+  int32 invalid_rows = 4;
+  repeated ImportError errors = 5;
+  repeated string warnings = 6;              // Non-fatal issues
+}
+
+// GetImportTemplateRequest requests a CSV template
+message GetImportTemplateRequest {
+  bool include_example_data = 1;             // Include sample rows
+}
+
+// GetImportTemplateResponse returns CSV template
+message GetImportTemplateResponse {
+  bytes csv_data = 1;
+  string file_name = 2;
+  repeated string required_columns = 3;
+  repeated string optional_columns = 4;
+}
+
