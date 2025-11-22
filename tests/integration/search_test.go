@@ -186,3 +186,62 @@ func TestSearchAcceptanceScenarios(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchFilterCoverage adds coverage for specific filter combinations
+func TestSearchFilterCoverage(t *testing.T) {
+	db, cleanup := testutil.SetupTestDB(t)
+	defer cleanup()
+	defer testutil.TruncateTables(db)
+
+	searchService := services.NewSearchService(db)
+	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
+		"name": "Search Filter Org",
+	})
+
+	// Create active and draft products
+	testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+		"sku":        "SEARCH-ACTIVE",
+		"name":       "Active Search Product",
+		"status":     models.ProductStatusActive,
+		"base_price": int64(1000),
+	})
+
+	testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+		"sku":        "SEARCH-DRAFT",
+		"name":       "Draft Search Product",
+		"status":     models.ProductStatusDraft,
+		"base_price": int64(2000),
+	})
+
+	ctx := context.WithValue(context.Background(), middleware.OrganizationIDKey, org.ID)
+
+	// Test Filter by Status (using service directly to bypass handler request parsing logic if any specific gaps there, 
+	// but main gap was coverage of productStatusToString which is used in service)
+	activeStatus := pb.ProductStatus_PRODUCT_STATUS_ACTIVE
+	products, _, err := searchService.Filter(ctx, org.ID, &pb.ProductsFilter{
+		Statuses: []pb.ProductStatus{activeStatus},
+	}, nil)
+	if err != nil {
+		t.Fatalf("Filter by status failed: %v", err)
+	}
+	if len(products) != 1 {
+		t.Errorf("Expected 1 active product, got %d", len(products))
+	}
+	if products[0].SKU != "SEARCH-ACTIVE" {
+		t.Errorf("Expected SEARCH-ACTIVE, got %s", products[0].SKU)
+	}
+
+	// Test Filter by Price Range
+	productsPrice, _, err := searchService.Filter(ctx, org.ID, &pb.ProductsFilter{
+		MinPrice: 1500,
+	}, nil)
+	if err != nil {
+		t.Fatalf("Filter by price failed: %v", err)
+	}
+	if len(productsPrice) != 1 {
+		t.Errorf("Expected 1 product > 1500, got %d", len(productsPrice))
+	}
+	if productsPrice[0].SKU != "SEARCH-DRAFT" {
+		t.Errorf("Expected SEARCH-DRAFT, got %s", productsPrice[0].SKU)
+	}
+}

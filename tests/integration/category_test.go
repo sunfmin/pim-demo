@@ -415,3 +415,67 @@ func TestCategoryEdgeCases(t *testing.T) {
 		t.Logf("✅ Created hierarchy: %s -> %s -> %s", root.Name, child.Name, grandchild.Name)
 	})
 }
+
+// TestCategoryServiceHelpers adds coverage for helper functions
+func TestCategoryServiceHelpers(t *testing.T) {
+	db, cleanup := testutil.SetupTestDB(t)
+	defer cleanup()
+	defer testutil.TruncateTables(db)
+
+	categoryService := services.NewCategoryService(db)
+	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
+		"name": "Test Org Category Helpers",
+	})
+
+	// Create hierarchy: Root -> Child -> Grandchild
+	root := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+		"name": "Root",
+		"slug": "root",
+	})
+
+	child := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+		"name":      "Child",
+		"slug":      "child",
+		"parent_id": &root.ID,
+	})
+
+	grandchild := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+		"name":      "Grandchild",
+		"slug":      "grandchild",
+		"parent_id": &child.ID,
+	})
+
+	// Test GetPath
+	respPath, err := categoryService.GetPath(context.Background(), grandchild.ID, org.ID)
+	if err != nil {
+		t.Fatalf("GetPath failed: %v", err)
+	}
+	expectedPath := "Root > Child > Grandchild"
+	if respPath.PathString != expectedPath {
+		t.Errorf("Expected path '%s', got '%s'", expectedPath, respPath.PathString)
+	}
+
+	// Test GetPath for root
+	respPathRoot, err := categoryService.GetPath(context.Background(), root.ID, org.ID)
+	if err != nil {
+		t.Fatalf("GetPath root failed: %v", err)
+	}
+	if respPathRoot.PathString != "Root" {
+		t.Errorf("Expected path 'Root', got '%s'", respPathRoot.PathString)
+	}
+
+	// Test automatic slug generation
+	req := &pb.CreateCategoryRequest{
+		Name: "Auto Slug Test",
+	}
+	// Using service Create directly
+	ctx := context.WithValue(context.Background(), middleware.OrganizationIDKey, org.ID)
+	resp, err := categoryService.Create(ctx, req, org.ID)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	if resp.Slug != "auto-slug-test" {
+		t.Errorf("Expected generated slug 'auto-slug-test', got '%s'", resp.Slug)
+	}
+}

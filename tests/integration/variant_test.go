@@ -502,3 +502,91 @@ func TestVariantEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestVariantAdditionalCoverage adds missing coverage for Get, Delete, and List
+func TestVariantAdditionalCoverage(t *testing.T) {
+	db, cleanup := testutil.SetupTestDB(t)
+	defer cleanup()
+	defer testutil.TruncateTables(db)
+
+	variantService := services.NewVariantService(db)
+	productService := services.NewProductService(db)
+	variantHandler := handlers.NewVariantHandler(variantService, productService)
+
+	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+	parent := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+		"sku":  "PARENT-ADD-001",
+		"name": "Parent Product",
+	})
+
+	variantAttrs, _ := json.Marshal(map[string]string{
+		"size": "L",
+	})
+	variant := testutil.CreateTestVariant(t, db, parent.ID, org.ID, map[string]interface{}{
+		"variant_sku":        "VARIANT-ADD-001",
+		"variant_attributes": datatypes.JSON(variantAttrs),
+	})
+
+	// Test Case 1: Get Variant
+	t.Run("Get Variant", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/variants/"+variant.ID.String(), nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		variantHandler.Get(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var resp pb.GetVariantResponse
+		testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+		if resp.Variant.Id != variant.ID.String() {
+			t.Errorf("Expected ID %s, got %s", variant.ID.String(), resp.Variant.Id)
+		}
+	})
+
+	// Test Case 2: List Variants (Global with filter)
+	t.Run("List Variants", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/variants?parent_product_id="+parent.ID.String(), nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		variantHandler.List(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var resp pb.ListVariantsResponse
+		testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+		if len(resp.Variants) != 1 {
+			t.Errorf("Expected 1 variant, got %d", len(resp.Variants))
+		}
+	})
+
+	// Test Case 3: Delete Variant
+	t.Run("Delete Variant", func(t *testing.T) {
+		req := httptest.NewRequest("DELETE", "/api/v1/variants/"+variant.ID.String(), nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		variantHandler.Delete(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		// Verify deletion
+		var count int64
+		db.Model(&models.ProductVariant{}).Where("id = ?", variant.ID).Count(&count)
+		if count != 0 {
+			t.Error("Variant should be deleted")
+		}
+	})
+}

@@ -430,3 +430,153 @@ func TestAssetEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestAssetAdditionalCoverage adds missing coverage for Get, Update, Download, and ListByProduct
+func TestAssetAdditionalCoverage(t *testing.T) {
+	db, cleanup := testutil.SetupTestDB(t)
+	defer cleanup()
+	defer testutil.TruncateTables(db)
+
+	storageDir := filepath.Join(os.TempDir(), "pim-test-assets-add-"+uuid.New().String())
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		t.Fatalf("Failed to create storage dir: %v", err)
+	}
+	defer os.RemoveAll(storageDir)
+
+	assetService := services.NewAssetService(db, storageDir)
+	productService := services.NewProductService(db)
+	assetHandler := handlers.NewAssetHandler(assetService, productService)
+
+	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
+		"name": "Test Org Additional",
+	})
+	product := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+		"sku":  "LAPTOP-ADD-001",
+		"name": "Test Laptop Additional",
+	})
+
+	// Define test data
+	fileName := "test-image.jpg"
+	fileContent := []byte("fake-image-content")
+
+	// Create asset record in DB using fixture (which also creates a dummy file)
+	asset := testutil.CreateTestAsset(t, db, product.ID, org.ID, storageDir, map[string]interface{}{
+		"file_name":    fileName,
+		"asset_type":   "image",
+		"content_type": "image/jpeg",
+		"file_size":    int64(len(fileContent)),
+		"alt_text":     "Original Alt Text",
+		"display_order": 1,
+	})
+
+	// Overwrite the fixture file with our specific content
+	if err := os.WriteFile(asset.StoragePath, fileContent, 0644); err != nil {
+		t.Fatalf("Failed to overwrite test file: %v", err)
+	}
+
+	// Test Case 1: Get Asset Metadata
+	t.Run("Get Asset", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/assets/"+asset.ID.String(), nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		assetHandler.Get(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var resp pb.GetAssetResponse
+		testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+		if resp.Asset.Id != asset.ID.String() {
+			t.Errorf("Expected ID %s, got %s", asset.ID.String(), resp.Asset.Id)
+		}
+		if resp.Asset.AltText != "Original Alt Text" {
+			t.Errorf("Expected alt text 'Original Alt Text', got %s", resp.Asset.AltText)
+		}
+	})
+
+	// Test Case 2: Update Asset Metadata
+	t.Run("Update Asset", func(t *testing.T) {
+		updateReq := &pb.UpdateAssetRequest{
+			Id:      asset.ID.String(),
+			AltText: "Updated Alt Text",
+			DisplayOrder: 5,
+		}
+		body, _ := json.Marshal(updateReq)
+		req := httptest.NewRequest("PUT", "/api/v1/assets/"+asset.ID.String(), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		assetHandler.Update(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp pb.UpdateAssetResponse
+		testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+		if resp.Asset.AltText != "Updated Alt Text" {
+			t.Errorf("Expected updated alt text, got %s", resp.Asset.AltText)
+		}
+		if resp.Asset.DisplayOrder != 5 {
+			t.Errorf("Expected display order 5, got %d", resp.Asset.DisplayOrder)
+		}
+	})
+
+	// Test Case 3: Download Asset File
+	t.Run("Download Asset", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/api/v1/assets/"+asset.ID.String()+"/download", nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		assetHandler.Download(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		if w.Header().Get("Content-Type") != "image/jpeg" {
+			t.Errorf("Expected Content-Type image/jpeg, got %s", w.Header().Get("Content-Type"))
+		}
+		
+		// Check content
+		if !bytes.Equal(w.Body.Bytes(), fileContent) {
+			t.Error("Downloaded content does not match stored file")
+		}
+	})
+
+	// Test Case 4: List Assets By Product
+	t.Run("List Assets By Product", func(t *testing.T) {
+		// Create a second asset for the same product
+		testutil.CreateTestAsset(t, db, product.ID, org.ID, storageDir, map[string]interface{}{
+			"file_name":    "second.jpg",
+			"asset_type":   "image",
+			"display_order": 2,
+		})
+
+		req := httptest.NewRequest("GET", "/api/v1/products/"+product.ID.String()+"/assets", nil)
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		assetHandler.ListByProduct(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status 200, got %d", w.Code)
+		}
+
+		var resp pb.ListAssetsResponse
+		testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+		if len(resp.Assets) != 2 {
+			t.Errorf("Expected 2 assets, got %d", len(resp.Assets))
+		}
+	})
+}

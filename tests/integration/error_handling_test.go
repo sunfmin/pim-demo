@@ -504,3 +504,31 @@ func TestErrorFlowEndToEnd(t *testing.T) {
 		}
 	})
 }
+
+// TestWriteValidationError tests validation error response formatting
+func TestWriteValidationError(t *testing.T) {
+	w := httptest.NewRecorder()
+	validationErrors := []*pb.FieldError{
+		{
+			Field:   "sku",
+			Message: "required",
+			Code:    "REQUIRED",
+		},
+	}
+
+	handlers.WriteValidationError(w, "test-req-id", validationErrors)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status 400, got %d", w.Code)
+	}
+
+	var resp pb.ErrorResponse
+	testutil.UnmarshalProtoResponse(t, w.Body, &resp)
+
+	if len(resp.FieldErrors) != 1 {
+		t.Errorf("Expected 1 validation error, got %d", len(resp.FieldErrors))
+	}
+	if resp.FieldErrors[0].Field != "sku" {
+		t.Errorf("Expected field 'sku', got %s", resp.FieldErrors[0].Field)
+	}
+}

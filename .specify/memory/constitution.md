@@ -1,3 +1,16 @@
+<!--
+SYNC IMPACT REPORT
+Version: 1.3.3 → 1.4.0
+Modified Principles:
+- Added Principle XIV: Test Coverage & Gap Analysis
+Added Sections:
+- Principle XIV definition
+- Principle XIV Code Review Checklist
+Templates Requiring Updates:
+- ✅ .specify/templates/tasks-template.md (Added coverage tasks)
+- ✅ .specify/templates/plan-template.md (Added coverage requirement)
+Follow-up TODOs: None
+-->
 # Go Project Constitution Template
 
 ## Core Principles
@@ -1996,6 +2009,16 @@ func TestEnrollCustomer(t *testing.T) {
 - [ ] Test validates complete "Then" clause, not partial behavior
 - [ ] Traceability matrix is up to date (optional but recommended)
 
+### XIV. Test Coverage & Gap Analysis
+
+Test coverage analysis MUST be used to identify and close testing gaps:
+- Developers MUST run `go test -cover` (or `go tool cover` for visualization) to identify untested code paths
+- Uncovered code paths identified by coverage reports MUST be covered by new tests
+- Coverage gaps MUST be analyzed to determine if they represent dead code or missing tests
+- Missing tests MUST be added to reach acceptable coverage levels (typically >80% for business logic)
+- Code that cannot be reached (dead code) SHOULD be removed rather than exempted
+
+**Rationale**: Coverage analysis provides objective data on testing completeness. It reveals edge cases, error paths, and logic branches that were missed during TDD. While 100% coverage is not always practical, coverage analysis ensures that critical business logic and error handling paths are not left untested.
 
 ## Technology Stack
 
@@ -2372,6 +2395,12 @@ All pull requests MUST be reviewed against these constitutional requirements, or
 - PR description MUST include acceptance scenario coverage summary
 - Reviewers SHOULD verify traceability matrix is up to date if provided (optional but recommended)
 
+**Principle XIV: Test Coverage & Gap Analysis**
+- Reviewers MUST verify that coverage reports were generated and analyzed
+- Reviewers MUST verify that new code includes tests covering main paths and error conditions
+- Reviewers MUST reject PRs that introduce significant coverage drops without justification
+- Reviewers MUST challenge untested code paths identified by coverage analysis
+
 **General**
 - Tests MUST be reviewed before implementation code (TDD workflow)
 - Reviewers MUST verify GORM is used for database access (no raw SQL unless justified)
@@ -2401,9 +2430,10 @@ All pull requests MUST be reviewed against these constitutional requirements, or
 
 This constitution is version-controlled alongside code and follows the same review process as code changes.
 
-**Version**: 1.3.3 | **Ratified**: 2025-11-20 | **Last Amended**: 2025-11-22
+**Version**: 1.4.0 | **Ratified**: 2025-11-20 | **Last Amended**: 2025-11-22
 
 **Version History**:
+- **1.4.0** (2025-11-22): Added Principle XIV (Test Coverage & Gap Analysis) - requires using `go test -cover` to uncover and test untested code paths
 - **1.3.3** (2025-11-22): Fixed example code violations - corrected all example code to follow Principle IX (Comprehensive Error Handling). Added proper error handling to examples in Principles VII and VIII where errors were being ignored. Added explanatory comments to test setup code where error handling omission is acceptable for brevity.
 - **1.3.2** (2025-11-22): Enhanced Principle VI (Protobuf Data Structures) - added strict definitions and anti-patterns section. Explicitly defines what qualifies as "truly random/generated" (only UUIDs, timestamps, crypto/rand values). Prohibits claiming fixture default values are "unknowable" or "can't derive". Requires AI agents to read fixture code before writing tests. Adds zero-tolerance code review enforcement protocol.
 - **1.3.1** (2025-11-21): Enhanced Principle VI (Protobuf Data Structures) - strengthened test fixture guidance to explicitly derive expected values from test fixtures (request data, DB fixtures, config) NOT response data, except for truly random/generated fields

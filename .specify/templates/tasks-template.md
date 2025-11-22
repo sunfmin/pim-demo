@@ -323,7 +323,9 @@ description: "Task list template for feature implementation"
 - [ ] TXXX Verify all integration tests pass with real database
 - [ ] TXXX Verify all error tests pass
 - [ ] TXXX Run tests with race detector to catch concurrency issues
-- [ ] TXXX Verify test coverage is adequate
+- [ ] TXXX Generate coverage report: `go test -coverprofile=coverage.out ./...`
+- [ ] TXXX Analyze coverage gaps and add tests per Principle XIV
+- [ ] TXXX Verify test coverage meets threshold (>80%)
 - [ ] TXXX Security hardening (run tests after security changes)
 - [ ] TXXX Run quickstart.md validation
 
