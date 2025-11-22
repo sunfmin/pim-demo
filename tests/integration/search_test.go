@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/gorm"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
@@ -28,14 +26,8 @@ func TestSearchAcceptanceScenarios(t *testing.T) {
 	defer cleanup()
 
 	// Setup services and handlers
-	productService := services.NewProductService(db)
 	searchService := services.NewSearchService(db)
 	searchHandler := handlers.NewSearchHandler(searchService)
-
-	// Create test organization
-	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
-		"name": "Test Org",
-	})
 
 	tests := []struct {
 		name     string
@@ -284,7 +276,7 @@ func TestSearchAcceptanceScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Truncate tables before each test for isolation
-			defer testutil.TruncateTables(t, db)
+			defer testutil.TruncateTables(db)
 
 			// Recreate org for each test
 			org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
@@ -300,7 +292,7 @@ func TestSearchAcceptanceScenarios(t *testing.T) {
 func TestSearchEdgeCases(t *testing.T) {
 	db, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
-	defer testutil.TruncateTables(t, db)
+	defer testutil.TruncateTables(db)
 
 	searchService := services.NewSearchService(db)
 	searchHandler := handlers.NewSearchHandler(searchService)
@@ -437,7 +429,7 @@ func TestSearchEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, httpReq := tt.setup(t)
+			_, httpReq := tt.setup(t)
 
 			w := httptest.NewRecorder()
 			searchHandler.Search(w, httpReq)

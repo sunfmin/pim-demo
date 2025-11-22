@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
@@ -35,17 +32,6 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 	variantHandler := handlers.NewVariantHandler(variantService, productService)
 
 	// Create test organization and parent product
-	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
-		"name": "Test Org",
-	})
-	parentProduct := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
-		"sku":         "TSHIRT-001",
-		"name":        "Basic T-Shirt",
-		"description": "Plain cotton t-shirt",
-		"base_price":  int64(1999), // $19.99
-		"status":      models.ProductStatusActive,
-	})
-
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T, db *gorm.DB, org *models.Organization, parent *models.Product)
@@ -311,7 +297,7 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Truncate tables before each test for isolation
-			defer testutil.TruncateTables(t, db)
+			defer testutil.TruncateTables(db)
 
 			// Recreate org and parent product for each test
 			org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
@@ -334,13 +320,15 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 func TestVariantEdgeCases(t *testing.T) {
 	db, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
-	defer testutil.TruncateTables(t, db)
+	defer testutil.TruncateTables(db)
 
 	variantService := services.NewVariantService(db)
 	productService := services.NewProductService(db)
 	variantHandler := handlers.NewVariantHandler(variantService, productService)
 
-	org := testutil.CreateTestOrganization(t, db, "Test Org Edge Cases")
+	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
+		"name": "Test Org Edge Cases",
+	})
 
 	tests := []struct {
 		name           string
@@ -490,7 +478,7 @@ func TestVariantEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, httpReq := tt.setup(t)
+			_, httpReq := tt.setup(t)
 
 			w := httptest.NewRecorder()
 

@@ -3,14 +3,23 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/yourorg/pim-demo/internal/models"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+// GenerateSKU generates a random SKU for testing
+func GenerateSKU() string {
+	return fmt.Sprintf("SKU-%08d", rng.Intn(100000000))
+}
 
 // CreateTestOrganization creates a test organization in the database
 func CreateTestOrganization(t *testing.T, db *gorm.DB, overrides map[string]interface{}) *models.Organization {

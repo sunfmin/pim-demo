@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,9 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/testing/protocmp"
 	"gorm.io/gorm"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
@@ -45,7 +42,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
 		"name": "Test Org",
 	})
-	product := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+	_ = testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
 		"sku":  "LAPTOP-001",
 		"name": "Test Laptop",
 	})
@@ -133,7 +130,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 
 				// When: Product manager sets asset2 as primary
 				req := &pb.SetPrimaryAssetRequest{
-					AssetId: asset2.ID.String(),
+					Id: asset2.ID.String(),
 				}
 
 				reqBody, _ := json.Marshal(req)
@@ -242,7 +239,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Truncate tables before each test for isolation
-			defer testutil.TruncateTables(t, db)
+			defer testutil.TruncateTables(db)
 
 			// Recreate org and product for each test
 			org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
@@ -262,7 +259,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 func TestAssetEdgeCases(t *testing.T) {
 	db, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
-	defer testutil.TruncateTables(t, db)
+	defer testutil.TruncateTables(db)
 
 	storageDir := filepath.Join(os.TempDir(), "pim-test-assets-edge-"+uuid.New().String())
 	defer os.RemoveAll(storageDir)
@@ -398,7 +395,7 @@ func TestAssetEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, httpReq := tt.setup(t)
+			_, httpReq := tt.setup(t)
 
 			w := httptest.NewRecorder()
 
