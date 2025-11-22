@@ -68,6 +68,71 @@ func AutoMigrate(ctx context.Context, db *gorm.DB) error {
 		return fmt.Errorf("failed to create unique index on product_variants: %w", err)
 	}
 
+	// Create full-text search indexes
+	// GIN index on search_vector for full-text search
+	if err := db.WithContext(ctx).Exec(`
+		CREATE INDEX IF NOT EXISTS idx_products_search_vector 
+		ON products USING GIN(search_vector)
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create search vector index: %w", err)
+	}
+
+	// Trigram indexes for partial matching on SKU and name
+	if err := db.WithContext(ctx).Exec(`
+		CREATE INDEX IF NOT EXISTS idx_products_sku_trgm 
+		ON products USING GIN(sku gin_trgm_ops)
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create SKU trigram index: %w", err)
+	}
+
+	if err := db.WithContext(ctx).Exec(`
+		CREATE INDEX IF NOT EXISTS idx_products_name_trgm 
+		ON products USING GIN(name gin_trgm_ops)
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create name trigram index: %w", err)
+	}
+
+	// Create trigger to maintain search_vector
+	if err := db.WithContext(ctx).Exec(`
+		CREATE OR REPLACE FUNCTION products_search_vector_update() 
+		RETURNS TRIGGER AS $$
+		BEGIN
+			NEW.search_vector := 
+				setweight(to_tsvector('english', COALESCE(NEW.name, '')), 'A') ||
+				setweight(to_tsvector('english', COALESCE(NEW.sku, '')), 'B') ||
+				setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'C');
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create search vector function: %w", err)
+	}
+
+	if err := db.WithContext(ctx).Exec(`
+		DROP TRIGGER IF EXISTS products_search_vector_trigger ON products
+	`).Error; err != nil {
+		return fmt.Errorf("failed to drop old search vector trigger: %w", err)
+	}
+
+	if err := db.WithContext(ctx).Exec(`
+		CREATE TRIGGER products_search_vector_trigger 
+		BEFORE INSERT OR UPDATE ON products
+		FOR EACH ROW EXECUTE FUNCTION products_search_vector_update()
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create search vector trigger: %w", err)
+	}
+
+	// Update existing products to populate search_vector
+	if err := db.WithContext(ctx).Exec(`
+		UPDATE products SET search_vector = 
+			setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
+			setweight(to_tsvector('english', COALESCE(sku, '')), 'B') ||
+			setweight(to_tsvector('english', COALESCE(description, '')), 'C')
+		WHERE search_vector IS NULL OR search_vector = ''
+	`).Error; err != nil {
+		return fmt.Errorf("failed to update existing search vectors: %w", err)
+	}
+
 	return nil
 }
 

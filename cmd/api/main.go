@@ -66,12 +66,23 @@ func main() {
 	categoryService := services.NewCategoryService(db)
 	variantService := services.NewVariantService(db)
 	assetService := services.NewAssetService(db, cfg.AssetStoragePath)
+	searchService := services.NewSearchService(db)
 
 	// Create handlers
 	productHandler := handlers.NewProductHandler(productService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	variantHandler := handlers.NewVariantHandler(variantService, productService)
 	assetHandler := handlers.NewAssetHandler(assetService, productService)
+	searchHandler := handlers.NewSearchHandler(searchService)
+
+	// Register search endpoint
+	mux.HandleFunc("/api/v1/products/search", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			searchHandler.Search(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// Register product endpoints
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
