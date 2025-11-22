@@ -45,7 +45,7 @@ Follow-up TODOs: None
 
 ## Testing & Quality Assurance
 
-### I. Integration Testing First (No Mocking) {#i-integration-testing-first-no-mocking}
+### I. Integration Testing First (No Mocking)
 
 All tests MUST be integration tests that interact with real dependencies:
 - Tests MUST use real PostgreSQL database connections
@@ -56,7 +56,7 @@ All tests MUST be integration tests that interact with real dependencies:
 
 **Rationale**: Integration tests catch real-world issues that unit tests with mocks cannot, including database constraint violations, connection pooling issues, transaction handling bugs, and serialization problems.
 
-### II. Table-Driven Test Design {#ii-table-driven-test-design}
+### II. Table-Driven Test Design
 
 All tests MUST follow table-driven test patterns:
 - Tests MUST define test cases as slices of structs with inputs and expected outputs
@@ -67,7 +67,7 @@ All tests MUST follow table-driven test patterns:
 
 **Rationale**: Table-driven tests reduce code duplication, make test cases easy to add/modify, improve test readability, and enable comprehensive scenario coverage with minimal code.
 
-### III. Edge Case Coverage (NON-NEGOTIABLE) {#iii-edge-case-coverage-non-negotiable}
+### III. Edge Case Coverage (NON-NEGOTIABLE)
 
 Every API endpoint MUST test comprehensive edge cases:
 - **Input validation**: Empty strings, nil values, invalid formats, SQL injection attempts, XSS payloads
@@ -80,7 +80,7 @@ Every API endpoint MUST test comprehensive edge cases:
 
 **Rationale**: Production systems face unexpected inputs and conditions. Comprehensive edge case testing prevents security vulnerabilities, data corruption, and runtime panics.
 
-### IV. Real Database Fixtures {#iv-real-database-fixtures}
+### IV. Real Database Fixtures
 
 Test data MUST be prepared using real database operations:
 - Fixture data MUST be inserted using GORM to real test database
@@ -92,7 +92,7 @@ Test data MUST be prepared using real database operations:
 
 **Rationale**: Real database fixtures ensure tests validate actual database behavior including constraints, triggers, indexes, and query performance.
 
-### V. ServeHTTP Endpoint Testing {#v-servehttp-endpoint-testing}
+### V. ServeHTTP Endpoint Testing
 
 API endpoints MUST be tested via ServeHTTP interface:
 - Tests MUST create `httptest.ResponseRecorder` to capture responses
@@ -104,7 +104,7 @@ API endpoints MUST be tested via ServeHTTP interface:
 
 **Rationale**: Testing through ServeHTTP ensures complete HTTP stack validation including routing, middleware, request parsing, content negotiation, error handling, and response formatting.
 
-### VI. Protobuf Data Structures {#vi-protobuf-data-structures}
+### VI. Protobuf Data Structures
 
 All public API data structures MUST be defined in Protocol Buffers:
 - API request and response types MUST be defined in `.proto` files
@@ -410,7 +410,7 @@ Fix required:
 
 **Escalation:** Repeated violations require AI agent process review.
 
-### VII. Continuous Test Verification {#vii-continuous-test-verification}
+### VII. Continuous Test Verification
 
 All code changes MUST be verified by running tests immediately after implementation:
 - Tests MUST be executed after every code change before committing
@@ -443,7 +443,7 @@ All code changes MUST be verified by running tests immediately after implementat
 - Test coverage MUST be maintained or improved
 - Flaky tests MUST be fixed immediately (not ignored or re-run)
 
-### VIII. Root Cause Tracing (Debugging Discipline) {#viii-root-cause-tracing-debugging-discipline}
+### VIII. Root Cause Tracing (Debugging Discipline)
 
 When problems occur during development, root cause analysis MUST be performed before implementing fixes:
 - Problems MUST be traced backward through the call chain to find the original trigger
@@ -472,7 +472,7 @@ When problems occur during development, root cause analysis MUST be performed be
 - AI agents MUST document the root cause analysis process
 - AI agents MUST update tests to prevent regression of root causes
 
-### IX. Acceptance Scenario Coverage (Spec-to-Test Mapping) {#ix-acceptance-scenario-coverage-spec-to-test-mapping}
+### IX. Acceptance Scenario Coverage (Spec-to-Test Mapping)
 
 Every user scenario in specifications MUST have corresponding automated tests:
 - Each acceptance scenario (US#-AS#) in spec.md MUST have a test case
@@ -518,7 +518,7 @@ func TestUserAcceptanceScenarios(t *testing.T) {
 - [ ] Test validates complete "Then" clause, not partial behavior
 - [ ] Traceability matrix is up to date (optional but recommended)
 
-### X. Test Coverage & Gap Analysis {#x-test-coverage--gap-analysis}
+### X. Test Coverage & Gap Analysis
 
 Test coverage analysis MUST be used to identify and close testing gaps:
 - Developers MUST run `go test -cover` (or `go tool cover` for visualization) to identify untested code paths
@@ -531,7 +531,7 @@ Test coverage analysis MUST be used to identify and close testing gaps:
 
 ## System Architecture
 
-### XI. Service Layer Architecture (Dependency Injection) {#xi-service-layer-architecture-dependency-injection}
+### XI. Service Layer Architecture (Dependency Injection)
 
 Business logic MUST be separated from HTTP transport using service interfaces:
 - Each HTTP endpoint handler MUST create or continue an OpenTracing span
@@ -1268,7 +1268,7 @@ func TestProductHandler_Create(t *testing.T) {
 }
 ```
 
-### XII. Distributed Tracing (OpenTracing) {#xii-distributed-tracing-opentracing}
+### XII. Distributed Tracing (OpenTracing)
 
 All API endpoints MUST be instrumented with distributed tracing at appropriate granularity:
 - Each HTTP endpoint handler MUST create or continue an OpenTracing span
@@ -1363,7 +1363,7 @@ func (s *productService) Create(ctx context.Context, req *pb.ProductCreateReques
 
 ## Operational Excellence
 
-### XIII. Comprehensive Error Handling {#xiii-comprehensive-error-handling}
+### XIII. Comprehensive Error Handling
 
 Error handling MUST use a two-layer strategy: sentinel errors for internal flow and singleton HTTP error codes for client responses:
 
@@ -1637,7 +1637,7 @@ func TestProductHandler_Create_DuplicateSKU(t *testing.T) {
 - **No manual switch**: AllErrors() + ServiceErr field handles mapping
 - **Clean handlers**: Just call HandleServiceError(w, err) - done!
 
-### XIV. Context-Aware Operations {#xiv-context-aware-operations}
+### XIV. Context-Aware Operations
 
 All I/O and long-running operations MUST accept and respect `context.Context`:
 - All service methods MUST accept `context.Context` as the first parameter
