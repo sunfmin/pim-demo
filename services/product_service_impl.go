@@ -38,6 +38,15 @@ func (s *productServiceImpl) Create(ctx context.Context, req *pb.CreateProductRe
 	if req.Name == "" {
 		return nil, fmt.Errorf("name is required: %w", ErrInvalidProduct)
 	}
+	if len(req.Sku) > 50 {
+		return nil, fmt.Errorf("SKU too long (max 50 characters): %w", ErrInvalidProduct)
+	}
+	if len(req.Name) > 500 {
+		return nil, fmt.Errorf("name too long (max 500 characters): %w", ErrInvalidProduct)
+	}
+	if req.BasePrice < 0 {
+		return nil, fmt.Errorf("base price cannot be negative: %w", ErrInvalidProduct)
+	}
 
 	// Check for duplicate SKU
 	var existingProduct models.Product
@@ -407,13 +416,20 @@ func convertModelToProto(product *models.Product) *pb.Product {
 	// For now, return empty array
 	categoryIDs := []string{}
 
+	// Debug: ensure BasePrice is int64
+	basePrice := product.BasePrice
+	if basePrice == 0 && product.BasePrice != 0 {
+		// This should not happen, but let's ensure it's properly typed
+		basePrice = product.BasePrice
+	}
+
 	return &pb.Product{
 		Id:             product.ID.String(),
 		OrganizationId: product.OrganizationID.String(),
 		Sku:            product.SKU,
 		Name:           product.Name,
 		Description:    product.Description,
-		BasePrice:      product.BasePrice,
+		BasePrice:      basePrice,
 		Status:         convertModelStatusToProto(product.Status),
 		Attributes:     convertJSONToAttributes(product.Attributes),
 		CategoryIds:    categoryIDs,

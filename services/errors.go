@@ -13,7 +13,8 @@ var (
 	ErrProductHasDependencies = errors.New("product has dependencies and cannot be deleted")
 
 	// Category errors
-	ErrCategoryNotFound = errors.New("category not found")
+	ErrCategoryNotFound    = errors.New("category not found")
+	ErrDuplicateCategorySlug = errors.New("category slug already exists")
 
 	// Variant errors
 	ErrVariantNotFound    = errors.New("product variant not found")

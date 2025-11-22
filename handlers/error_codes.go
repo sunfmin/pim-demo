@@ -46,12 +46,19 @@ var (
 		ServiceErr: services.ErrProductHasDependencies,
 	}
 
-	// Category errors (404)
+	// Category errors (404, 409)
 	ErrCodeCategoryNotFound = ErrorCode{
 		Code:       "CATEGORY_NOT_FOUND",
 		Message:    "The requested category was not found",
 		StatusCode: http.StatusNotFound,
 		ServiceErr: services.ErrCategoryNotFound,
+	}
+
+	ErrCodeDuplicateCategorySlug = ErrorCode{
+		Code:       "DUPLICATE_CATEGORY_SLUG",
+		Message:    "A category with this slug already exists",
+		StatusCode: http.StatusConflict,
+		ServiceErr: services.ErrDuplicateCategorySlug,
 	}
 
 	// Variant errors (400, 404)
@@ -144,6 +151,7 @@ var errorCodeMap = map[error]ErrorCode{
 	services.ErrInvalidProduct:         ErrCodeInvalidProductData,
 	services.ErrProductHasDependencies: ErrCodeProductInUse,
 	services.ErrCategoryNotFound:       ErrCodeCategoryNotFound,
+	services.ErrDuplicateCategorySlug:  ErrCodeDuplicateCategorySlug,
 	services.ErrVariantNotFound:        ErrCodeVariantNotFound,
 	services.ErrInvalidVariantData:     ErrCodeInvalidVariantData,
 	services.ErrAssetNotFound:          ErrCodeAssetNotFound,

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -40,9 +42,17 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate Content-Type
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		ext.Error.Set(span, true)
+		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
+		return
+	}
+
 	// Parse request body
 	var req pb.CreateProductRequest
-	if err := ReadJSON(r, &req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -141,7 +151,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.UpdateProductRequest
-	if err := ReadJSON(r, &req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -229,10 +239,19 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	// For MVP, we'll support basic pagination
 	// Full filtering/sorting can be added later via JSON body or query params
 
+	// Parse limit parameter (default to 20)
+	limitStr := r.URL.Query().Get("limit")
+	pageSize := int32(20) // default
+	if limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			pageSize = int32(parsedLimit)
+		}
+	}
+
 	req := &pb.ListProductsRequest{
 		Pagination: &pb.PaginationRequest{
 			Page:     1,
-			PageSize: 20,
+			PageSize: pageSize,
 		},
 	}
 
@@ -252,3 +271,4 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 func generateRequestID() string {
 	return uuid.New().String()
 }
+

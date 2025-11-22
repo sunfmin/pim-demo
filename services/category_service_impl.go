@@ -70,6 +70,17 @@ func (s *categoryServiceImpl) Create(ctx context.Context, req *pb.CreateCategory
 		parentID = &pid
 	}
 
+	// Check for duplicate slug within the same organization
+	var existingCategory models.Category
+	if err := s.db.WithContext(ctx).
+		Where("organization_id = ? AND slug = ?", orgID, slug).
+		First(&existingCategory).Error; err == nil {
+		// Category with this slug already exists
+		return nil, fmt.Errorf("category with slug '%s' already exists: %w", slug, ErrDuplicateCategorySlug)
+	} else if err != gorm.ErrRecordNotFound {
+		return nil, fmt.Errorf("failed to check for duplicate category slug: %w", err)
+	}
+
 	// Create category
 	category := &models.Category{
 		OrganizationID: orgID,
