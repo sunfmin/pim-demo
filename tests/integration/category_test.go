@@ -3,7 +3,6 @@ package integration
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -339,81 +338,103 @@ func TestCategoryEdgeCases(t *testing.T) {
 		return r.WithContext(ctx)
 	}
 
-	t.Run("Circular reference prevention", func(t *testing.T) {
-		// Create parent and child
-		parent := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-			"name": "Parent",
-			"slug": "parent",
+	tests := []struct {
+		name           string
+		setup          func() *http.Request
+		expectedStatus int
+	}{
+		{
+			name: "Circular reference prevention",
+			setup: func() *http.Request {
+				// Create parent and child
+				parent := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+					"name": "Parent",
+					"slug": "parent",
+				})
+
+				child := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+					"name":      "Child",
+					"slug":      "child",
+					"parent_id": &parent.ID,
+				})
+
+				// Attempt to make parent a child of child (circular reference)
+				updateRequest := &pb.UpdateCategoryRequest{
+					ParentId: child.ID.String(),
+				}
+
+				body, _ := protojson.Marshal(updateRequest)
+				req := httptest.NewRequest(http.MethodPut, "/api/v1/categories/"+parent.ID.String(), bytes.NewReader(body))
+				return addOrgContext(req, org.ID)
+			},
+			expectedStatus: http.StatusConflict, // Assuming conflict or bad request for circular ref
+		},
+		{
+			name: "Non-existent category returns 404",
+			setup: func() *http.Request {
+				nonExistentID := uuid.New()
+				req := httptest.NewRequest(http.MethodGet, "/api/v1/categories/"+nonExistentID.String(), nil)
+				return addOrgContext(req, org.ID)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name: "Category tree retrieval",
+			setup: func() *http.Request {
+				// Create hierarchical structure
+				testutil.CreateTestCategoryTree(t, db, org.ID)
+				// Get tree
+				req := httptest.NewRequest(http.MethodGet, "/api/v1/categories/tree", nil)
+				return addOrgContext(req, org.ID)
+			},
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := tt.setup()
+			rec := httptest.NewRecorder()
+
+			switch req.Method {
+			case http.MethodPut:
+				categoryHandler.Update(rec, req)
+			case http.MethodGet:
+				if req.URL.Path == "/api/v1/categories/tree" {
+					categoryHandler.GetTree(rec, req)
+				} else {
+					categoryHandler.Get(rec, req)
+				}
+			}
+
+			// Fix expectation for circular ref if needed - previous test asserted != OK
+			if tt.name == "Circular reference prevention" {
+				if rec.Code == http.StatusOK {
+					t.Error("Expected error for circular reference, but got success")
+				}
+			} else {
+				if rec.Code != tt.expectedStatus {
+					t.Errorf("Expected status %d, got %d", tt.expectedStatus, rec.Code)
+				}
+			}
+
+			if tt.name == "Category tree retrieval" && rec.Code == http.StatusOK {
+				var treeResponse pb.GetCategoryTreeResponse
+				testutil.UnmarshalProtoResponse(t, rec.Body, &treeResponse)
+
+				// Should have root categories
+				if len(treeResponse.Trees) == 0 {
+					t.Error("Expected at least one root category in tree")
+				} else {
+					// Verify hierarchy depth
+					rootTree := treeResponse.Trees[0]
+					if len(rootTree.Children) == 0 {
+						t.Error("Expected root to have children")
+					}
+				}
+			}
 		})
-
-		child := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-			"name":      "Child",
-			"slug":      "child",
-			"parent_id": &parent.ID,
-		})
-
-		// Attempt to make parent a child of child (circular reference)
-		updateRequest := &pb.UpdateCategoryRequest{
-			ParentId: child.ID.String(),
-		}
-
-		body, _ := protojson.Marshal(updateRequest)
-		req := httptest.NewRequest(http.MethodPut, "/api/v1/categories/"+parent.ID.String(), bytes.NewReader(body))
-		req = addOrgContext(req, org.ID)
-
-		rec := httptest.NewRecorder()
-		categoryHandler.Update(rec, req)
-
-		// Should return error
-		if rec.Code == http.StatusOK {
-			t.Error("Expected error for circular reference, but got success")
-		}
-	})
-
-	t.Run("Non-existent category returns 404", func(t *testing.T) {
-		nonExistentID := uuid.New()
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/categories/"+nonExistentID.String(), nil)
-		req = addOrgContext(req, org.ID)
-
-		rec := httptest.NewRecorder()
-		categoryHandler.Get(rec, req)
-
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("Expected status %d, got %d", http.StatusNotFound, rec.Code)
-		}
-	})
-
-	t.Run("Category tree retrieval", func(t *testing.T) {
-		// Create hierarchical structure
-		root, child, grandchild := testutil.CreateTestCategoryTree(t, db, org.ID)
-
-		// Get tree
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/categories/tree", nil)
-		req = addOrgContext(req, org.ID)
-
-		rec := httptest.NewRecorder()
-		categoryHandler.GetTree(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Errorf("Expected status %d, got %d", http.StatusOK, rec.Code)
-		}
-
-		var treeResponse pb.GetCategoryTreeResponse
-		json.NewDecoder(rec.Body).Decode(&treeResponse)
-
-		// Should have root categories
-		if len(treeResponse.Trees) == 0 {
-			t.Error("Expected at least one root category in tree")
-		}
-
-		// Verify hierarchy depth
-		rootTree := treeResponse.Trees[0]
-		if len(rootTree.Children) == 0 {
-			t.Error("Expected root to have children")
-		}
-
-		t.Logf("✅ Created hierarchy: %s -> %s -> %s", root.Name, child.Name, grandchild.Name)
-	})
+	}
 }
 
 // TestCategoryServiceHelpers adds coverage for helper functions
@@ -427,55 +448,65 @@ func TestCategoryServiceHelpers(t *testing.T) {
 		"name": "Test Org Category Helpers",
 	})
 
-	// Create hierarchy: Root -> Child -> Grandchild
-	root := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-		"name": "Root",
-		"slug": "root",
-	})
+	tests := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "GetPath",
+			testFunc: func(t *testing.T) {
+				// Create hierarchy: Root -> Child -> Grandchild
+				root := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+					"name": "Root", "slug": "root",
+				})
+				child := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+					"name": "Child", "slug": "child", "parent_id": &root.ID,
+				})
+				grandchild := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
+					"name": "Grandchild", "slug": "grandchild", "parent_id": &child.ID,
+				})
 
-	child := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-		"name":      "Child",
-		"slug":      "child",
-		"parent_id": &root.ID,
-	})
+				respPath, err := categoryService.GetPath(context.Background(), grandchild.ID, org.ID)
+				if err != nil {
+					t.Fatalf("GetPath failed: %v", err)
+				}
+				expectedPath := "Root > Child > Grandchild"
+				if respPath.PathString != expectedPath {
+					t.Errorf("Expected path '%s', got '%s'", expectedPath, respPath.PathString)
+				}
 
-	grandchild := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-		"name":      "Grandchild",
-		"slug":      "grandchild",
-		"parent_id": &child.ID,
-	})
+				respPathRoot, err := categoryService.GetPath(context.Background(), root.ID, org.ID)
+				if err != nil {
+					t.Fatalf("GetPath root failed: %v", err)
+				}
+				if respPathRoot.PathString != "Root" {
+					t.Errorf("Expected path 'Root', got '%s'", respPathRoot.PathString)
+				}
+			},
+		},
+		{
+			name: "Automatic Slug Generation",
+			testFunc: func(t *testing.T) {
+				req := &pb.CreateCategoryRequest{
+					Name: "Auto Slug Test",
+				}
+				// Using service Create directly
+				ctx := context.WithValue(context.Background(), middleware.OrganizationIDKey, org.ID)
+				resp, err := categoryService.Create(ctx, req, org.ID)
+				if err != nil {
+					t.Fatalf("Create failed: %v", err)
+				}
 
-	// Test GetPath
-	respPath, err := categoryService.GetPath(context.Background(), grandchild.ID, org.ID)
-	if err != nil {
-		t.Fatalf("GetPath failed: %v", err)
-	}
-	expectedPath := "Root > Child > Grandchild"
-	if respPath.PathString != expectedPath {
-		t.Errorf("Expected path '%s', got '%s'", expectedPath, respPath.PathString)
-	}
-
-	// Test GetPath for root
-	respPathRoot, err := categoryService.GetPath(context.Background(), root.ID, org.ID)
-	if err != nil {
-		t.Fatalf("GetPath root failed: %v", err)
-	}
-	if respPathRoot.PathString != "Root" {
-		t.Errorf("Expected path 'Root', got '%s'", respPathRoot.PathString)
-	}
-
-	// Test automatic slug generation
-	req := &pb.CreateCategoryRequest{
-		Name: "Auto Slug Test",
-	}
-	// Using service Create directly
-	ctx := context.WithValue(context.Background(), middleware.OrganizationIDKey, org.ID)
-	resp, err := categoryService.Create(ctx, req, org.ID)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
+				if resp.Slug != "auto-slug-test" {
+					t.Errorf("Expected generated slug 'auto-slug-test', got '%s'", resp.Slug)
+				}
+			},
+		},
 	}
 
-	if resp.Slug != "auto-slug-test" {
-		t.Errorf("Expected generated slug 'auto-slug-test', got '%s'", resp.Slug)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.testFunc(t)
+		})
 	}
 }

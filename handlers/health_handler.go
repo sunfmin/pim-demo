@@ -29,12 +29,16 @@ type HealthResponse struct {
 // Health handles the health check endpoint
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	// Check database connection
-	sqlDB, err := h.db.DB()
 	dbStatus := "healthy"
-	if err != nil {
+	if h.db == nil {
 		dbStatus = "unhealthy"
-	} else if err := sqlDB.Ping(); err != nil {
-		dbStatus = "unhealthy"
+	} else {
+		sqlDB, err := h.db.DB()
+		if err != nil {
+			dbStatus = "unhealthy"
+		} else if err := sqlDB.Ping(); err != nil {
+			dbStatus = "unhealthy"
+		}
 	}
 
 	response := HealthResponse{

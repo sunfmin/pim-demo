@@ -3,7 +3,6 @@ package integration
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -317,76 +316,83 @@ func TestProductEdgeCases(t *testing.T) {
 	productService := services.NewProductService(db)
 	productHandler := handlers.NewProductHandler(productService)
 
-	t.Run("Empty SKU returns validation error", func(t *testing.T) {
-		requestData := &pb.CreateProductRequest{
-			Sku:       "", // Empty SKU
-			Name:      "Test Product",
-			BasePrice: 1000,
-		}
+	tests := []struct {
+		name           string
+		setup          func() *http.Request
+		expectedStatus int
+	}{
+		{
+			name: "Empty SKU returns validation error",
+			setup: func() *http.Request {
+				requestData := &pb.CreateProductRequest{
+					Sku:       "", // Empty SKU
+					Name:      "Test Product",
+					BasePrice: 1000,
+				}
+				requestBody, _ := protojson.Marshal(requestData)
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
+				ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+				return req.WithContext(ctx)
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Empty name returns validation error",
+			setup: func() *http.Request {
+				requestData := &pb.CreateProductRequest{
+					Sku:       "TEST-SKU",
+					Name:      "", // Empty name
+					BasePrice: 1000,
+				}
+				requestBody, _ := protojson.Marshal(requestData)
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
+				ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+				return req.WithContext(ctx)
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Non-existent product returns 404",
+			setup: func() *http.Request {
+				nonExistentID := uuid.New()
+				req := httptest.NewRequest(http.MethodGet, "/api/v1/products/"+nonExistentID.String(), nil)
+				ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+				return req.WithContext(ctx)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name: "Missing organization ID returns unauthorized",
+			setup: func() *http.Request {
+				requestData := &pb.CreateProductRequest{
+					Sku:       "TEST-SKU",
+					Name:      "Test Product",
+					BasePrice: 1000,
+				}
+				requestBody, _ := protojson.Marshal(requestData)
+				return httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
+				// No X-Organization-ID header (context)
+			},
+			expectedStatus: http.StatusUnauthorized,
+		},
+	}
 
-		requestBody, _ := json.Marshal(requestData)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
-		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
-		req = req.WithContext(ctx)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := tt.setup()
+			rec := httptest.NewRecorder()
 
-		rec := httptest.NewRecorder()
-		productHandler.Create(rec, req)
+			// Dispatch based on method
+			switch req.Method {
+			case http.MethodPost:
+				productHandler.Create(rec, req)
+			case http.MethodGet:
+				productHandler.Get(rec, req)
+			}
 
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, rec.Code)
-		}
-	})
-
-	t.Run("Empty name returns validation error", func(t *testing.T) {
-		requestData := &pb.CreateProductRequest{
-			Sku:       "TEST-SKU",
-			Name:      "", // Empty name
-			BasePrice: 1000,
-		}
-
-		requestBody, _ := json.Marshal(requestData)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
-		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
-		req = req.WithContext(ctx)
-
-		rec := httptest.NewRecorder()
-		productHandler.Create(rec, req)
-
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, rec.Code)
-		}
-	})
-
-	t.Run("Non-existent product returns 404", func(t *testing.T) {
-		nonExistentID := uuid.New()
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/"+nonExistentID.String(), nil)
-		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
-		req = req.WithContext(ctx)
-
-		rec := httptest.NewRecorder()
-		productHandler.Get(rec, req)
-
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("Expected status %d, got %d", http.StatusNotFound, rec.Code)
-		}
-	})
-
-	t.Run("Missing organization ID returns unauthorized", func(t *testing.T) {
-		requestData := &pb.CreateProductRequest{
-			Sku:       "TEST-SKU",
-			Name:      "Test Product",
-			BasePrice: 1000,
-		}
-
-		requestBody, _ := json.Marshal(requestData)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
-		// No X-Organization-ID header
-
-		rec := httptest.NewRecorder()
-		productHandler.Create(rec, req)
-
-		if rec.Code != http.StatusUnauthorized {
-			t.Errorf("Expected status %d, got %d", http.StatusUnauthorized, rec.Code)
-		}
-	})
+			if rec.Code != tt.expectedStatus {
+				t.Errorf("Expected status %d, got %d", tt.expectedStatus, rec.Code)
+			}
+		})
+	}
 }
