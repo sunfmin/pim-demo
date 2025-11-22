@@ -62,9 +62,11 @@ func main() {
 
 	// Create services
 	productService := services.NewProductService(db)
+	categoryService := services.NewCategoryService(db)
 
 	// Create handlers
 	productHandler := handlers.NewProductHandler(productService)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
 	// Register product endpoints
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +89,40 @@ func main() {
 			productHandler.Update(w, r)
 		case http.MethodDelete:
 			productHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Register category endpoints
+	mux.HandleFunc("/api/v1/categories", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			categoryHandler.Create(w, r)
+		case http.MethodGet:
+			categoryHandler.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/categories/tree", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			categoryHandler.GetTree(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/categories/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle /api/v1/categories/{id}
+		switch r.Method {
+		case http.MethodGet:
+			categoryHandler.Get(w, r)
+		case http.MethodPut:
+			categoryHandler.Update(w, r)
+		case http.MethodDelete:
+			categoryHandler.Delete(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

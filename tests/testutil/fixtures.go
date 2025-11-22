@@ -93,3 +93,70 @@ func CreateTestProductBatch(t *testing.T, db *gorm.DB, orgID uuid.UUID, count in
 	return products
 }
 
+// CreateTestCategory creates a test category in the database
+func CreateTestCategory(t *testing.T, db *gorm.DB, orgID uuid.UUID, overrides map[string]interface{}) *models.Category {
+	t.Helper()
+
+	category := &models.Category{
+		OrganizationID: orgID,
+		Name:           "Test Category",
+		Slug:           "test-category-" + uuid.New().String()[:8],
+		Description:    "Test category description",
+		DisplayOrder:   0,
+		IsActive:       true,
+	}
+
+	// Apply overrides
+	if name, ok := overrides["name"].(string); ok {
+		category.Name = name
+	}
+	if slug, ok := overrides["slug"].(string); ok {
+		category.Slug = slug
+	}
+	if description, ok := overrides["description"].(string); ok {
+		category.Description = description
+	}
+	if displayOrder, ok := overrides["display_order"].(int); ok {
+		category.DisplayOrder = displayOrder
+	}
+	if isActive, ok := overrides["is_active"].(bool); ok {
+		category.IsActive = isActive
+	}
+	if parentID, ok := overrides["parent_id"].(*uuid.UUID); ok {
+		category.ParentID = parentID
+	}
+
+	if err := db.Create(category).Error; err != nil {
+		t.Fatalf("failed to create test category: %v", err)
+	}
+
+	return category
+}
+
+// CreateTestCategoryTree creates a hierarchical category structure for testing
+func CreateTestCategoryTree(t *testing.T, db *gorm.DB, orgID uuid.UUID) (*models.Category, *models.Category, *models.Category) {
+	t.Helper()
+
+	// Create root category
+	root := CreateTestCategory(t, db, orgID, map[string]interface{}{
+		"name": "Electronics",
+		"slug": "electronics",
+	})
+
+	// Create child category
+	child := CreateTestCategory(t, db, orgID, map[string]interface{}{
+		"name":      "Computers",
+		"slug":      "computers",
+		"parent_id": &root.ID,
+	})
+
+	// Create grandchild category
+	grandchild := CreateTestCategory(t, db, orgID, map[string]interface{}{
+		"name":      "Laptops",
+		"slug":      "laptops",
+		"parent_id": &child.ID,
+	})
+
+	return root, child, grandchild
+}
+

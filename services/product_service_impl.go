@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
@@ -76,6 +77,13 @@ func (s *productServiceImpl) Create(ctx context.Context, req *pb.CreateProductRe
 		return nil, fmt.Errorf("failed to create product: %w", err)
 	}
 
+	// Handle category assignments if provided
+	if len(req.CategoryIds) > 0 {
+		if err := s.assignCategories(ctx, product.ID, req.CategoryIds, orgID); err != nil {
+			return nil, fmt.Errorf("failed to assign categories: %w", err)
+		}
+	}
+
 	// Convert to protobuf response
 	return convertModelToProto(product), nil
 }
@@ -140,6 +148,20 @@ func (s *productServiceImpl) Update(ctx context.Context, id uuid.UUID, req *pb.U
 	// Save updates
 	if err := s.db.WithContext(ctx).Save(&product).Error; err != nil {
 		return nil, fmt.Errorf("failed to update product: %w", err)
+	}
+
+	// Handle category assignments if provided
+	if req.CategoryIds != nil {
+		// Clear existing categories and assign new ones
+		if err := s.db.WithContext(ctx).Exec("DELETE FROM product_categories WHERE product_id = ?", product.ID).Error; err != nil {
+			return nil, fmt.Errorf("failed to clear existing categories: %w", err)
+		}
+
+		if len(req.CategoryIds) > 0 {
+			if err := s.assignCategories(ctx, product.ID, req.CategoryIds, orgID); err != nil {
+				return nil, fmt.Errorf("failed to assign categories: %w", err)
+			}
+		}
 	}
 
 	return convertModelToProto(&product), nil
@@ -334,7 +356,45 @@ func convertJSONToAttributes(jsonData datatypes.JSON) map[string]*pb.AttributeVa
 	return make(map[string]*pb.AttributeValue)
 }
 
+// assignCategories assigns categories to a product
+func (s *productServiceImpl) assignCategories(ctx context.Context, productID uuid.UUID, categoryIDs []string, orgID uuid.UUID) error {
+	for _, categoryIDStr := range categoryIDs {
+		categoryID, err := uuid.Parse(categoryIDStr)
+		if err != nil {
+			return fmt.Errorf("invalid category ID '%s': %w", categoryIDStr, ErrInvalidProduct)
+		}
+
+		// Verify category exists and belongs to same organization
+		var category models.Category
+		if err := s.db.WithContext(ctx).Where("id = ? AND organization_id = ?", categoryID, orgID).First(&category).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return fmt.Errorf("category with ID '%s' not found: %w", categoryID, ErrCategoryNotFound)
+			}
+			return fmt.Errorf("failed to verify category: %w", err)
+		}
+
+		// Create product-category association
+		productCategory := &models.ProductCategory{
+			ProductID:  productID,
+			CategoryID: categoryID,
+		}
+
+		if err := s.db.WithContext(ctx).Create(productCategory).Error; err != nil {
+			// Ignore duplicate errors (already assigned)
+			if !strings.Contains(err.Error(), "duplicate") {
+				return fmt.Errorf("failed to assign category: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func convertModelToProto(product *models.Product) *pb.Product {
+	// TODO: Load category IDs from product_categories table
+	// For now, return empty array
+	categoryIDs := []string{}
+
 	return &pb.Product{
 		Id:             product.ID.String(),
 		OrganizationId: product.OrganizationID.String(),
@@ -344,7 +404,7 @@ func convertModelToProto(product *models.Product) *pb.Product {
 		BasePrice:      product.BasePrice,
 		Status:         convertModelStatusToProto(product.Status),
 		Attributes:     convertJSONToAttributes(product.Attributes),
-		CategoryIds:    []string{}, // Will be populated when categories are implemented
+		CategoryIds:    categoryIDs,
 		CreatedAt:      timestamppb.New(product.CreatedAt),
 		UpdatedAt:      timestamppb.New(product.UpdatedAt),
 	}

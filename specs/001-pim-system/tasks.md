@@ -153,7 +153,7 @@ description: "Implementation tasks for PIM System feature"
 
 > **ACCEPTANCE SCENARIO COVERAGE (Principle XIII): Each acceptance scenario from spec.md MUST have a corresponding test**
 
-- [ ] T043 [US2] Create acceptance scenario test file `tests/integration/category_test.go` with TestCategoryAcceptanceScenarios function
+- [x] T043 [US2] Create acceptance scenario test file `tests/integration/category_test.go` with TestCategoryAcceptanceScenarios function
   - **Acceptance Scenario Tests (MANDATORY - table-driven design per Principle XIII)**:
     - Test function: `TestCategoryAcceptanceScenarios` (table-driven)
     - Test case names: "US2-AS1: Create category with parent", "US2-AS2: Assign to multiple categories", "US2-AS3: Remove from one category", "US2-AS4: Delete parent with children"
@@ -167,29 +167,29 @@ description: "Implementation tasks for PIM System feature"
   - Exercise full stack: HTTP → CategoryHandler → CategoryService → GORM
   - Table-driven tests with comprehensive edge cases
 
-- [ ] T044 [US2] Create product-category assignment test in `tests/integration/product_category_test.go`
+- [x] T044 [US2] Create product-category assignment test in `tests/integration/product_category_test.go`
   - Test assigning products to categories via product update
   - Test filtering products by category
   - Test removing category assignments
   - Verify many-to-many relationship integrity
 
-- [ ] T045 [US2] Create fixture helpers in `tests/testutil/fixtures.go` for Category entity (CreateTestCategory, CreateTestCategoryTree)
+- [x] T045 [US2] Create fixture helpers in `tests/testutil/fixtures.go` for Category entity (CreateTestCategory, CreateTestCategoryTree)
 
 ### Implementation for User Story 2
 
-- [ ] T046 [P] [US2] Create Category GORM model in `internal/models/category.go` (with parent_id self-reference, hierarchy support)
-- [ ] T047 [P] [US2] Create ProductCategory join table model in `internal/models/product_category.go` (many-to-many relationship)
-- [ ] T048 [P] [US2] Define CategoryService interface in `services/category_service.go` (CRUD, tree operations, path resolution)
-- [ ] T049 [US2] Implement CategoryService in `services/category_service_impl.go` (hierarchy validation, circular reference detection)
-- [ ] T050 [US2] Add circular reference validation in CategoryService (prevent category being ancestor of itself)
-- [ ] T051 [US2] Add max depth validation in CategoryService (10 levels per data-model.md)
-- [ ] T052 [US2] Implement category tree retrieval in CategoryService.GetTree (recursive query with depth tracking)
-- [ ] T053 [US2] Implement category path resolution in CategoryService.GetPath (ancestors from root to category)
-- [ ] T054 [US2] Create CategoryHandler in `handlers/category_handler.go` (CRUD operations, tree endpoints)
-- [ ] T055 [US2] Add category assignment logic in ProductService.Update (many-to-many relationship management)
-- [ ] T056 [US2] Register category routes in `cmd/api/main.go`
-- [ ] T057 [US2] Update AutoMigrate to include Category and ProductCategory models
-- [ ] T058 [US2] Update Product model to include Categories relationship (many2many GORM tag)
+- [x] T046 [P] [US2] Create Category GORM model in `internal/models/category.go` (with parent_id self-reference, hierarchy support)
+- [x] T047 [P] [US2] Create ProductCategory join table model in `internal/models/product_category.go` (many-to-many relationship)
+- [x] T048 [P] [US2] Define CategoryService interface in `services/category_service.go` (CRUD, tree operations, path resolution)
+- [x] T049 [US2] Implement CategoryService in `services/category_service_impl.go` (hierarchy validation, circular reference detection)
+- [x] T050 [US2] Add circular reference validation in CategoryService (prevent category being ancestor of itself)
+- [x] T051 [US2] Add max depth validation in CategoryService (10 levels per data-model.md)
+- [x] T052 [US2] Implement category tree retrieval in CategoryService.GetTree (recursive query with depth tracking)
+- [x] T053 [US2] Implement category path resolution in CategoryService.GetPath (ancestors from root to category)
+- [x] T054 [US2] Create CategoryHandler in `handlers/category_handler.go` (CRUD operations, tree endpoints)
+- [x] T055 [US2] Add category assignment logic in ProductService.Update (many-to-many relationship management)
+- [x] T056 [US2] Register category routes in `cmd/api/main.go`
+- [x] T057 [US2] Update AutoMigrate to include Category and ProductCategory models
+- [x] T058 [US2] Update Product model to include Categories relationship (many2many GORM tag)
 
 **Checkpoint**: User Stories 1 AND 2 independently functional - Products can be categorized hierarchically
 

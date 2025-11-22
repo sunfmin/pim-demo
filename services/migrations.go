@@ -24,10 +24,10 @@ func AutoMigrate(ctx context.Context, db *gorm.DB) error {
 	// Models will be added as they are created in subsequent phases
 	if err := db.WithContext(ctx).AutoMigrate(
 		&models.Organization{},
+		&models.Category{},
 		&models.Product{},
+		&models.ProductCategory{},
 		// Additional models will be added here as they are created
-		// &models.Category{},
-		// &models.ProductCategory{},
 		// &models.ProductVariant{},
 		// &models.Asset{},
 		// &models.AttributeDefinition{},
@@ -42,6 +42,22 @@ func AutoMigrate(ctx context.Context, db *gorm.DB) error {
 		WHERE deleted_at IS NULL
 	`).Error; err != nil {
 		return fmt.Errorf("failed to create unique index on products: %w", err)
+	}
+
+	// Create unique index on (organization_id, slug) for categories
+	if err := db.WithContext(ctx).Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_org_slug 
+		ON categories (organization_id, slug)
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create unique index on categories: %w", err)
+	}
+
+	// Create unique index on (product_id, category_id) for product_categories
+	if err := db.WithContext(ctx).Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_product_categories_unique 
+		ON product_categories (product_id, category_id)
+	`).Error; err != nil {
+		return fmt.Errorf("failed to create unique index on product_categories: %w", err)
 	}
 
 	return nil

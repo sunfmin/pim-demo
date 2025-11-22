@@ -34,6 +34,7 @@ type Product struct {
 
 	// Relationships
 	Organization Organization `gorm:"foreignKey:OrganizationID"`
+	Categories   []Category   `gorm:"many2many:product_categories;"`
 }
 
 // BeforeCreate hook to set UUID and default status if not provided

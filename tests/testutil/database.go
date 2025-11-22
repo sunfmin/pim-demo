@@ -73,15 +73,15 @@ func TruncateTables(db *gorm.DB, tables ...string) error {
 
 	// If no specific tables provided, truncate all in reverse order
 	if len(tables) == 0 {
-		// Only include tables that currently exist (Phase 3 MVP only has products and organizations)
+		// Truncate in reverse dependency order
 		tables = []string{
+			"product_categories", // Join table (depends on products and categories)
 			"products",
+			"categories",
 			"organizations",
 			// Tables below will be added as features are implemented:
 			// "assets",
 			// "product_variants",
-			// "product_categories",
-			// "categories",
 		}
 	}
 
