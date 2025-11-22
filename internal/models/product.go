@@ -34,9 +34,9 @@ type Product struct {
 
 	// Relationships
 	Organization Organization     `gorm:"foreignKey:OrganizationID"`
-	Categories   []Category        `gorm:"many2many:product_categories;"`
-	Variants     []ProductVariant  `gorm:"foreignKey:ParentProductID"`
-	Assets       []Asset           `gorm:"foreignKey:ProductID"`
+	Categories   []Category       `gorm:"many2many:product_categories;"`
+	Variants     []ProductVariant `gorm:"foreignKey:ParentProductID"`
+	Assets       []Asset          `gorm:"foreignKey:ProductID"`
 }
 
 // BeforeCreate hook to set UUID and default status if not provided
@@ -54,4 +54,3 @@ func (p *Product) BeforeCreate(tx *gorm.DB) error {
 func (Product) TableName() string {
 	return "products"
 }
-

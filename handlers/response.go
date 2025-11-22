@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
 )
@@ -11,7 +15,35 @@ import (
 func WriteJSON(w http.ResponseWriter, statusCode int, data interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
+
+	if msg, ok := data.(proto.Message); ok {
+		marshalOptions := protojson.MarshalOptions{
+			EmitUnpopulated: true,
+			UseProtoNames:   true,
+		}
+		bytes, err := marshalOptions.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(bytes)
+		return err
+	}
+
 	return json.NewEncoder(w).Encode(data)
+}
+
+// ReadJSON reads a JSON request body into a Protobuf message
+func ReadJSON(r *http.Request, msg proto.Message) error {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	defer r.Body.Close()
+
+	unmarshalOptions := protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+	}
+	return unmarshalOptions.Unmarshal(body, msg)
 }
 
 // WriteError writes a JSON error response with the given error code
@@ -42,4 +74,3 @@ func WriteValidationError(w http.ResponseWriter, requestID string, fieldErrors [
 
 	return WriteJSON(w, http.StatusBadRequest, errorResponse)
 }
-

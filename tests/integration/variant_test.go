@@ -9,11 +9,13 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/encoding/protojson"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/yourorg/pim-demo/handlers"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
@@ -57,10 +59,10 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 					DefaultPriceAdjustment: 0,
 				}
 
-				reqBody, _ := json.Marshal(req)
+				reqBody, _ := protojson.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/variants/generate", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -72,9 +74,7 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 				}
 
 				var resp pb.GenerateVariantsResponse
-				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
+				testutil.UnmarshalProtoResponse(t, w.Body, &resp)
 
 				// Verify 6 variants created
 				if len(resp.Variants) != 6 {
@@ -136,10 +136,10 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 					Description: "Premium quality cotton t-shirt - updated",
 				}
 
-				reqBody, _ := json.Marshal(updateReq)
+				reqBody, _ := protojson.Marshal(updateReq)
 				httpReq := httptest.NewRequest("PUT", "/api/v1/products/"+parent.ID.String(), bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				productHandler := handlers.NewProductHandler(productService)
@@ -185,10 +185,10 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 					InventoryQuantity: 75,
 				}
 
-				reqBody, _ := json.Marshal(updateReq)
+				reqBody, _ := protojson.Marshal(updateReq)
 				httpReq := httptest.NewRequest("PUT", "/api/v1/variants/"+variant.ID.String(), bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -199,9 +199,7 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 				}
 
 				var resp pb.UpdateVariantResponse
-				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
+				testutil.UnmarshalProtoResponse(t, w.Body, &resp)
 
 				// Then: Only variant is updated, parent unchanged
 				expected := &pb.ProductVariant{
@@ -258,7 +256,7 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 
 				// When: Product manager requests all variants for product
 				httpReq := httptest.NewRequest("GET", "/api/v1/products/"+parent.ID.String()+"/variants", nil)
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -269,9 +267,7 @@ func TestVariantAcceptanceScenarios(t *testing.T) {
 				}
 
 				var resp pb.ListVariantsResponse
-				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
+				testutil.UnmarshalProtoResponse(t, w.Body, &resp)
 
 				// Then: All variants displayed with attributes and inventory
 				if len(resp.Variants) < 2 {
@@ -346,10 +342,10 @@ func TestVariantEdgeCases(t *testing.T) {
 						"size": {Value: &pb.AttributeValue_StringValue{StringValue: "M"}},
 					},
 				}
-				reqBody, _ := json.Marshal(req)
+				reqBody, _ := protojson.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/variants", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -381,10 +377,10 @@ func TestVariantEdgeCases(t *testing.T) {
 						"size": {Value: &pb.AttributeValue_StringValue{StringValue: "L"}},
 					},
 				}
-				reqBody, _ := json.Marshal(req)
+				reqBody, _ := protojson.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/variants", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusConflict,
@@ -407,13 +403,13 @@ func TestVariantEdgeCases(t *testing.T) {
 					},
 					PriceAdjustment: -500, // -$5.00 discount
 				}
-				reqBody, _ := json.Marshal(req)
+				reqBody, _ := protojson.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/variants", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
-			expectedStatus: http.StatusOK, // Negative price adjustments are allowed
+			expectedStatus: http.StatusCreated, // Negative price adjustments are allowed
 		},
 		{
 			name: "Delete parent deletes variants (cascade)",
@@ -434,7 +430,7 @@ func TestVariantEdgeCases(t *testing.T) {
 
 				// Delete parent
 				httpReq := httptest.NewRequest("DELETE", "/api/v1/products/"+parent.ID.String(), nil)
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 
 				productHandler := handlers.NewProductHandler(productService)
 				w := httptest.NewRecorder()
@@ -465,10 +461,10 @@ func TestVariantEdgeCases(t *testing.T) {
 					VariantSku:        "EMPTY-ATTR-001",
 					VariantAttributes: map[string]*pb.AttributeValue{}, // Empty attributes
 				}
-				reqBody, _ := json.Marshal(req)
+				reqBody, _ := protojson.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/variants", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -499,11 +495,10 @@ func TestVariantEdgeCases(t *testing.T) {
 			if tt.expectedError != "" && w.Code >= 400 {
 				var errResp map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &errResp)
-				if errCode, ok := errResp["error_code"].(string); !ok || errCode != tt.expectedError {
+				if errCode, ok := errResp["code"].(string); !ok || errCode != tt.expectedError {
 					t.Errorf("Expected error code %s, got %v", tt.expectedError, errResp)
 				}
 			}
 		})
 	}
 }
-

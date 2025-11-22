@@ -54,12 +54,19 @@ var (
 		ServiceErr: services.ErrCategoryNotFound,
 	}
 
-	// Variant errors (404)
+	// Variant errors (400, 404)
 	ErrCodeVariantNotFound = ErrorCode{
 		Code:       "VARIANT_NOT_FOUND",
 		Message:    "The requested product variant was not found",
 		StatusCode: http.StatusNotFound,
 		ServiceErr: services.ErrVariantNotFound,
+	}
+
+	ErrCodeInvalidVariantData = ErrorCode{
+		Code:       "INVALID_VARIANT_DATA",
+		Message:    "The variant data is invalid",
+		StatusCode: http.StatusBadRequest,
+		ServiceErr: services.ErrInvalidVariantData,
 	}
 
 	// Asset errors (400, 404, 413)
@@ -82,6 +89,13 @@ var (
 		Message:    "The uploaded file exceeds the maximum size limit",
 		StatusCode: http.StatusRequestEntityTooLarge,
 		ServiceErr: services.ErrAssetTooLarge,
+	}
+
+	ErrCodeAssetLimitExceeded = ErrorCode{
+		Code:       "ASSET_LIMIT_EXCEEDED",
+		Message:    "The maximum number of assets per product has been reached",
+		StatusCode: http.StatusBadRequest,
+		ServiceErr: services.ErrAssetLimitExceeded,
 	}
 
 	// Import/Export errors (400)
@@ -125,18 +139,20 @@ var (
 
 // errorCodeMap maps service errors to HTTP error codes
 var errorCodeMap = map[error]ErrorCode{
-	services.ErrProductNotFound:       ErrCodeProductNotFound,
-	services.ErrDuplicateSKU:          ErrCodeDuplicateSKU,
-	services.ErrInvalidProduct:        ErrCodeInvalidProductData,
+	services.ErrProductNotFound:        ErrCodeProductNotFound,
+	services.ErrDuplicateSKU:           ErrCodeDuplicateSKU,
+	services.ErrInvalidProduct:         ErrCodeInvalidProductData,
 	services.ErrProductHasDependencies: ErrCodeProductInUse,
-	services.ErrCategoryNotFound:      ErrCodeCategoryNotFound,
-	services.ErrVariantNotFound:       ErrCodeVariantNotFound,
-	services.ErrAssetNotFound:         ErrCodeAssetNotFound,
-	services.ErrInvalidAssetFormat:    ErrCodeInvalidFileFormat,
-	services.ErrAssetTooLarge:         ErrCodeFileTooLarge,
-	services.ErrImportFailed:          ErrCodeImportFailed,
-	services.ErrUnauthorized:          ErrCodeUnauthorized,
-	services.ErrOrganizationMismatch:  ErrCodeForbidden,
+	services.ErrCategoryNotFound:       ErrCodeCategoryNotFound,
+	services.ErrVariantNotFound:        ErrCodeVariantNotFound,
+	services.ErrInvalidVariantData:     ErrCodeInvalidVariantData,
+	services.ErrAssetNotFound:          ErrCodeAssetNotFound,
+	services.ErrInvalidAssetFormat:     ErrCodeInvalidFileFormat,
+	services.ErrAssetTooLarge:          ErrCodeFileTooLarge,
+	services.ErrAssetLimitExceeded:     ErrCodeAssetLimitExceeded,
+	services.ErrImportFailed:           ErrCodeImportFailed,
+	services.ErrUnauthorized:           ErrCodeUnauthorized,
+	services.ErrOrganizationMismatch:   ErrCodeForbidden,
 }
 
 // MapServiceError maps a service error to an HTTP error code
@@ -151,4 +167,3 @@ func MapServiceError(err error) ErrorCode {
 	// Default to internal server error for unknown errors
 	return ErrCodeInternalError
 }
-

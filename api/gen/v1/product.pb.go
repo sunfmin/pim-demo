@@ -920,6 +920,8 @@ type SearchProductsRequest struct {
 	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	CategoryIds   []string               `protobuf:"bytes,3,rep,name=category_ids,json=categoryIds,proto3" json:"category_ids,omitempty"`          // Optional category filter
 	Statuses      []ProductStatus        `protobuf:"varint,4,rep,packed,name=statuses,proto3,enum=pim.v1.ProductStatus" json:"statuses,omitempty"` // Optional status filter
+	MinPrice      int64                  `protobuf:"varint,5,opt,name=min_price,json=minPrice,proto3" json:"min_price,omitempty"`                  // Optional minimum price filter (cents)
+	MaxPrice      int64                  `protobuf:"varint,6,opt,name=max_price,json=maxPrice,proto3" json:"max_price,omitempty"`                  // Optional maximum price filter (cents)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -980,6 +982,20 @@ func (x *SearchProductsRequest) GetStatuses() []ProductStatus {
 		return x.Statuses
 	}
 	return nil
+}
+
+func (x *SearchProductsRequest) GetMinPrice() int64 {
+	if x != nil {
+		return x.MinPrice
+	}
+	return 0
+}
+
+func (x *SearchProductsRequest) GetMaxPrice() int64 {
+	if x != nil {
+		return x.MaxPrice
+	}
+	return 0
 }
 
 // SearchProductsResponse returns search results
@@ -1386,14 +1402,16 @@ const file_product_proto_rawDesc = "" +
 	"\bproducts\x18\x01 \x03(\v2\x0f.pim.v1.ProductR\bproducts\x12:\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1a.pim.v1.PaginationResponseR\n" +
-	"pagination\"\xbe\x01\n" +
+	"pagination\"\xf8\x01\n" +
 	"\x15SearchProductsRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x129\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pim.v1.PaginationRequestR\n" +
 	"pagination\x12!\n" +
 	"\fcategory_ids\x18\x03 \x03(\tR\vcategoryIds\x121\n" +
-	"\bstatuses\x18\x04 \x03(\x0e2\x15.pim.v1.ProductStatusR\bstatuses\"\x8b\x01\n" +
+	"\bstatuses\x18\x04 \x03(\x0e2\x15.pim.v1.ProductStatusR\bstatuses\x12\x1b\n" +
+	"\tmin_price\x18\x05 \x01(\x03R\bminPrice\x12\x1b\n" +
+	"\tmax_price\x18\x06 \x01(\x03R\bmaxPrice\"\x8b\x01\n" +
 	"\x16SearchProductsResponse\x125\n" +
 	"\aresults\x18\x01 \x03(\v2\x1b.pim.v1.ProductSearchResultR\aresults\x12:\n" +
 	"\n" +

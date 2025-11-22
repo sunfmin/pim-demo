@@ -119,6 +119,8 @@ message SearchProductsRequest {
   PaginationRequest pagination = 2;
   repeated string category_ids = 3;           // Optional category filter
   repeated ProductStatus statuses = 4;        // Optional status filter
+  int64 min_price = 5;                        // Optional minimum price filter (cents)
+  int64 max_price = 6;                        // Optional maximum price filter (cents)
 }
 
 // SearchProductsResponse returns search results

@@ -30,4 +30,3 @@ type Asset struct {
 func (Asset) TableName() string {
 	return "assets"
 }
-

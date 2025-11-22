@@ -16,6 +16,7 @@ import (
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -58,7 +59,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 					Status:      pb.ProductStatus_PRODUCT_STATUS_ACTIVE,
 				}
 
-				requestBody, _ := json.Marshal(requestData)
+				requestBody, _ := protojson.Marshal(requestData)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
 				req = addOrgContext(req, org.ID)
@@ -73,24 +74,22 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				}
 
 				var response pb.CreateProductResponse
-				if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
-					t.Fatalf("Failed to decode response: %v", err)
-				}
+				testutil.UnmarshalProtoResponse(t, rec.Body, &response)
 
 				// Build expected from fixtures (request data)
 				expected := &pb.CreateProductResponse{
 					Product: &pb.Product{
-						Id:             response.Product.Id,             // Use generated ID (random)
-						OrganizationId: org.ID.String(),                 // From test fixture
-						Sku:            requestData.Sku,                 // From request fixture
-						Name:           requestData.Name,                // From request fixture
-						Description:    requestData.Description,         // From request fixture
-						BasePrice:      requestData.BasePrice,           // From request fixture
-						Status:         requestData.Status,              // From request fixture
+						Id:             response.Product.Id,                 // Use generated ID (random)
+						OrganizationId: org.ID.String(),                     // From test fixture
+						Sku:            requestData.Sku,                     // From request fixture
+						Name:           requestData.Name,                    // From request fixture
+						Description:    requestData.Description,             // From request fixture
+						BasePrice:      requestData.BasePrice,               // From request fixture
+						Status:         requestData.Status,                  // From request fixture
 						Attributes:     make(map[string]*pb.AttributeValue), // Empty map for MVP
-						CategoryIds:    []string{},                      // Empty for MVP
-						CreatedAt:      response.Product.CreatedAt,      // Use generated timestamp (random)
-						UpdatedAt:      response.Product.UpdatedAt,      // Use generated timestamp (random)
+						CategoryIds:    []string{},                          // Empty for MVP
+						CreatedAt:      response.Product.CreatedAt,          // Use generated timestamp (random)
+						UpdatedAt:      response.Product.UpdatedAt,          // Use generated timestamp (random)
 					},
 				}
 
@@ -106,7 +105,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				productHandler.List(listRec, listReq)
 
 				var listResponse pb.ListProductsResponse
-				json.NewDecoder(listRec.Body).Decode(&listResponse)
+				testutil.UnmarshalProtoResponse(t, listRec.Body, &listResponse)
 
 				if len(listResponse.Products) != 1 {
 					t.Errorf("Expected 1 product in list, got %d", len(listResponse.Products))
@@ -137,7 +136,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 					BasePrice:   149900,
 				}
 
-				requestBody, _ := json.Marshal(updateRequest)
+				requestBody, _ := protojson.Marshal(updateRequest)
 				req := httptest.NewRequest(http.MethodPut, "/api/v1/products/"+existingProduct.ID.String(), bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
 				req = addOrgContext(req, testOrg.ID)
@@ -152,7 +151,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				}
 
 				var response pb.UpdateProductResponse
-				json.NewDecoder(rec.Body).Decode(&response)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &response)
 
 				// Build expected from fixtures
 				// Convert model status to proto status
@@ -168,13 +167,13 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 
 				expected := &pb.UpdateProductResponse{
 					Product: &pb.Product{
-						Id:             existingProduct.ID.String(),     // From database fixture
-						OrganizationId: testOrg.ID.String(),             // From test fixture
-						Sku:            existingProduct.SKU,             // From database fixture (unchanged)
-						Name:           updateRequest.Name,              // From request fixture
-						Description:    updateRequest.Description,       // From request fixture
-						BasePrice:      updateRequest.BasePrice,         // From request fixture
-						Status:         protoStatus,                     // From database fixture (unchanged)
+						Id:             existingProduct.ID.String(), // From database fixture
+						OrganizationId: testOrg.ID.String(),         // From test fixture
+						Sku:            existingProduct.SKU,         // From database fixture (unchanged)
+						Name:           updateRequest.Name,          // From request fixture
+						Description:    updateRequest.Description,   // From request fixture
+						BasePrice:      updateRequest.BasePrice,     // From request fixture
+						Status:         protoStatus,                 // From database fixture (unchanged)
 						Attributes:     make(map[string]*pb.AttributeValue),
 						CategoryIds:    []string{},
 						CreatedAt:      response.Product.CreatedAt, // Use from response (not changed)
@@ -219,7 +218,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				}
 
 				var response pb.DeleteProductResponse
-				json.NewDecoder(rec.Body).Decode(&response)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &response)
 
 				if !response.Success {
 					t.Error("Expected success to be true")
@@ -232,7 +231,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				productHandler.List(listRec, listReq)
 
 				var listResponse pb.ListProductsResponse
-				json.NewDecoder(listRec.Body).Decode(&listResponse)
+				testutil.UnmarshalProtoResponse(t, listRec.Body, &listResponse)
 
 				if len(listResponse.Products) != 0 {
 					t.Errorf("Expected 0 products in list after deletion, got %d", len(listResponse.Products))
@@ -273,7 +272,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 					BasePrice:   99900,
 				}
 
-				requestBody, _ := json.Marshal(requestData)
+				requestBody, _ := protojson.Marshal(requestData)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
 				req = addOrgContext(req, testOrg.ID)
@@ -287,7 +286,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				}
 
 				var errorResponse pb.ErrorResponse
-				json.NewDecoder(rec.Body).Decode(&errorResponse)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &errorResponse)
 
 				if errorResponse.Code != "DUPLICATE_SKU" {
 					t.Errorf("Expected error code 'DUPLICATE_SKU', got '%s'", errorResponse.Code)
@@ -391,4 +390,3 @@ func TestProductEdgeCases(t *testing.T) {
 		}
 	})
 }
-

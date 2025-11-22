@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -312,3 +313,70 @@ func CreateTestImageFile(t *testing.T) (*os.File, func()) {
 	return tmpFile, cleanup
 }
 
+// CreateTestCSV creates a temporary CSV file with the given headers and data
+func CreateTestCSV(t *testing.T, headers []string, data [][]string) (*os.File, func()) {
+	t.Helper()
+
+	tmpFile, err := os.CreateTemp("", "test-import-*.csv")
+	if err != nil {
+		t.Fatalf("failed to create temp CSV file: %v", err)
+	}
+
+	writer := csv.NewWriter(tmpFile)
+
+	if err := writer.Write(headers); err != nil {
+		t.Fatalf("failed to write CSV headers: %v", err)
+	}
+
+	if err := writer.WriteAll(data); err != nil {
+		t.Fatalf("failed to write CSV data: %v", err)
+	}
+
+	writer.Flush()
+
+	cleanup := func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}
+
+	return tmpFile, cleanup
+}
+
+// CreateLargeCSV creates a large temporary CSV file for performance testing
+func CreateLargeCSV(t *testing.T, rowCount int) (*os.File, func()) {
+	t.Helper()
+
+	tmpFile, err := os.CreateTemp("", "test-large-import-*.csv")
+	if err != nil {
+		t.Fatalf("failed to create temp CSV file: %v", err)
+	}
+
+	writer := csv.NewWriter(tmpFile)
+	headers := []string{"sku", "name", "description", "base_price", "status", "category_ids"}
+	if err := writer.Write(headers); err != nil {
+		t.Fatalf("failed to write CSV headers: %v", err)
+	}
+
+	for i := 0; i < rowCount; i++ {
+		row := []string{
+			fmt.Sprintf("IMPORT-SKU-%06d", i),
+			fmt.Sprintf("Imported Product %d", i),
+			"Imported via bulk import",
+			"1999",
+			"active",
+			"", // No categories for now
+		}
+		if err := writer.Write(row); err != nil {
+			t.Fatalf("failed to write CSV row %d: %v", i, err)
+		}
+	}
+
+	writer.Flush()
+
+	cleanup := func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}
+
+	return tmpFile, cleanup
+}

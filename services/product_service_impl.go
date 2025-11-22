@@ -184,15 +184,27 @@ func (s *productServiceImpl) Delete(ctx context.Context, id uuid.UUID, orgID uui
 		return fmt.Errorf("failed to retrieve product: %w", err)
 	}
 
-	// TODO: Check for dependencies (variants, assets, etc.) when those features are implemented
-	// For now, soft delete is always allowed
+	// Check for dependencies (variants, assets, etc.)
+	// We perform a cascading delete within a transaction
 
-	// Soft delete (sets deleted_at timestamp)
-	if err := s.db.WithContext(ctx).Delete(&product).Error; err != nil {
-		return fmt.Errorf("failed to delete product: %w", err)
-	}
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1. Delete variants (hard delete)
+		if err := tx.Where("parent_product_id = ?", product.ID).Delete(&models.ProductVariant{}).Error; err != nil {
+			return fmt.Errorf("failed to delete variants: %w", err)
+		}
 
-	return nil
+		// 2. Delete assets (soft delete via gorm model)
+		if err := tx.Where("product_id = ?", product.ID).Delete(&models.Asset{}).Error; err != nil {
+			return fmt.Errorf("failed to delete assets: %w", err)
+		}
+
+		// 3. Delete product (soft delete)
+		if err := tx.Delete(&product).Error; err != nil {
+			return fmt.Errorf("failed to delete product: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // List retrieves products with filtering and pagination
@@ -409,4 +421,3 @@ func convertModelToProto(product *models.Product) *pb.Product {
 		UpdatedAt:      timestamppb.New(product.UpdatedAt),
 	}
 }
-

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 )
@@ -36,7 +37,7 @@ func (h *VariantHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -45,7 +46,7 @@ func (h *VariantHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.CreateVariantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: %v", services.ErrInvalidProduct, err), generateRequestID())
 		return
@@ -75,7 +76,7 @@ func (h *VariantHandler) Get(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -115,7 +116,7 @@ func (h *VariantHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -133,7 +134,7 @@ func (h *VariantHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.UpdateVariantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: %v", services.ErrInvalidProduct, err), generateRequestID())
 		return
@@ -166,7 +167,7 @@ func (h *VariantHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -202,7 +203,7 @@ func (h *VariantHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -257,7 +258,7 @@ func (h *VariantHandler) ListByProduct(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -301,7 +302,7 @@ func (h *VariantHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	defer span.Finish()
 
 	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
+	orgID, ok := middleware.GetOrganizationID(ctx)
 	if !ok {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
@@ -310,7 +311,7 @@ func (h *VariantHandler) Generate(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.GenerateVariantsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: %v", services.ErrInvalidProduct, err), generateRequestID())
 		return
@@ -370,4 +371,3 @@ func modelToProtoVariant(variant *models.ProductVariant) *pb.ProductVariant {
 		UpdatedAt:         timestamppb.New(variant.UpdatedAt),
 	}
 }
-

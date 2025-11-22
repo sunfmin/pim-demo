@@ -44,4 +44,3 @@ type UploadAssetRequest struct {
 	AltText     string
 	IsPrimary   bool
 }
-

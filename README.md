@@ -137,6 +137,46 @@ DELETE /api/v1/products/{product-id}
 GET /api/v1/products?page=1&page_size=20
 ```
 
+#### Search Products
+
+```bash
+POST /api/v1/products/search
+Content-Type: application/json
+
+{
+  "query": "laptop",
+  "min_price": 100000,
+  "max_price": 200000,
+  "pagination": {
+    "page": 1,
+    "page_size": 10
+  }
+}
+```
+
+#### Import Products (CSV)
+
+```bash
+POST /api/v1/products/import
+Content-Type: multipart/form-data
+
+file=@products.csv
+mode=create_or_update
+```
+
+#### Export Products (CSV)
+
+```bash
+POST /api/v1/products/export
+Content-Type: application/json
+
+{
+  "filter": {
+    "min_price": 1000
+  }
+}
+```
+
 **Full API documentation**: See [`specs/001-pim-system/contracts/`](specs/001-pim-system/contracts/) for Protocol Buffer definitions.
 
 ---

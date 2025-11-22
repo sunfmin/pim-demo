@@ -69,6 +69,14 @@ func (s *searchServiceImpl) Search(ctx context.Context, orgID uuid.UUID, req *pb
 		query = query.Where("status IN ?", statuses)
 	}
 
+	// Apply price range filter
+	if req.MinPrice > 0 {
+		query = query.Where("base_price >= ?", req.MinPrice)
+	}
+	if req.MaxPrice > 0 {
+		query = query.Where("base_price <= ?", req.MaxPrice)
+	}
+
 	// Count total results
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -192,4 +200,3 @@ func sanitizeSearchQuery(query string) string {
 
 	return query
 }
-

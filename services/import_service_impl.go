@@ -20,19 +20,23 @@ import (
 	"github.com/yourorg/pim-demo/internal/models"
 )
 
-// importExportServiceImpl implements the ImportExportService interface
-type importExportServiceImpl struct {
-	db *gorm.DB
+// importServiceImpl implements the ImportService interface
+type importServiceImpl struct {
+	db             *gorm.DB
+	productService ProductService
 }
 
-// NewImportExportService creates a new instance of ImportExportService
-func NewImportExportService(db *gorm.DB) ImportExportService {
-	return &importExportServiceImpl{db: db}
+// NewImportService creates a new instance of ImportService
+func NewImportService(db *gorm.DB, productService ProductService) ImportService {
+	return &importServiceImpl{
+		db:             db,
+		productService: productService,
+	}
 }
 
 // ImportProducts imports products from CSV data
-func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid.UUID, csvReader io.Reader, mode pb.ImportMode) (*pb.ImportResult, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ImportExportService.ImportProducts")
+func (s *importServiceImpl) ImportProducts(ctx context.Context, orgID uuid.UUID, csvReader io.Reader, mode pb.ImportMode) (*pb.ImportResult, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ImportService.ImportProducts")
 	defer span.Finish()
 
 	startTime := time.Now()
@@ -44,7 +48,7 @@ func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid
 	// Read header row
 	headers, err := reader.Read()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV headers: %w", err)
+		return nil, fmt.Errorf("%w: failed to read CSV headers: %v", ErrImportFailed, err)
 	}
 
 	// Validate headers
@@ -57,7 +61,7 @@ func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid
 	requiredCols := []string{"sku", "name", "base_price"}
 	for _, col := range requiredCols {
 		if _, ok := headerMap[col]; !ok {
-			return nil, fmt.Errorf("missing required column: %s", col)
+			return nil, fmt.Errorf("%w: missing required column: %s", ErrImportFailed, col)
 		}
 	}
 
@@ -68,7 +72,7 @@ func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid
 		FailedRows:      0,
 		SkippedRows:     0,
 		Errors:          make([]*pb.ImportError, 0),
-		StartedAt:       nil, // Will be set later
+		StartedAt:       nil,
 		CompletedAt:     nil,
 		DurationSeconds: 0,
 	}
@@ -83,7 +87,7 @@ func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid
 				break
 			}
 			if err != nil {
-				return fmt.Errorf("failed to read CSV row %d: %w", rowNumber, err)
+				return fmt.Errorf("%w: failed to read CSV row %d: %v", ErrImportFailed, rowNumber, err)
 			}
 
 			rowNumber++
@@ -176,109 +180,9 @@ func (s *importExportServiceImpl) ImportProducts(ctx context.Context, orgID uuid
 	return result, nil
 }
 
-// ExportProducts exports products to CSV format
-func (s *importExportServiceImpl) ExportProducts(ctx context.Context, orgID uuid.UUID, filter *pb.ProductsFilter) (io.ReadCloser, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ImportExportService.ExportProducts")
-	defer span.Finish()
-
-	// Build query with filters
-	query := s.db.WithContext(ctx).Model(&models.Product{}).
-		Where("organization_id = ?", orgID).
-		Where("deleted_at IS NULL")
-
-	// Apply filters (reuse from search service)
-	if filter != nil {
-		// Category filter
-		if len(filter.CategoryIds) > 0 {
-			categoryUUIDs := make([]uuid.UUID, 0)
-			for _, catID := range filter.CategoryIds {
-				if id, err := uuid.Parse(catID); err == nil {
-					categoryUUIDs = append(categoryUUIDs, id)
-				}
-			}
-			if len(categoryUUIDs) > 0 {
-				query = query.Joins("JOIN product_categories ON product_categories.product_id = products.id").
-					Where("product_categories.category_id IN ?", categoryUUIDs)
-			}
-		}
-
-		// Price range filter
-		if filter.MinPrice > 0 {
-			query = query.Where("base_price >= ?", filter.MinPrice)
-		}
-		if filter.MaxPrice > 0 {
-			query = query.Where("base_price <= ?", filter.MaxPrice)
-		}
-
-		// Status filter
-		if len(filter.Statuses) > 0 {
-			statuses := make([]string, len(filter.Statuses))
-			for i, status := range filter.Statuses {
-				statuses[i] = productStatusToStringForExport(status)
-			}
-			query = query.Where("status IN ?", statuses)
-		}
-	}
-
-	// Fetch products
-	var products []models.Product
-	if err := query.Preload("Categories").Order("created_at DESC").Find(&products).Error; err != nil {
-		return nil, fmt.Errorf("failed to fetch products for export: %w", err)
-	}
-
-	// Generate CSV
-	var buf bytes.Buffer
-	writer := csv.NewWriter(&buf)
-
-	// Write header
-	headers := []string{"sku", "name", "description", "base_price", "status", "attributes", "category_ids"}
-	if err := writer.Write(headers); err != nil {
-		return nil, fmt.Errorf("failed to write CSV headers: %w", err)
-	}
-
-	// Write data rows
-	for _, product := range products {
-		// Convert attributes to JSON string
-		attributesJSON := "{}"
-		if len(product.Attributes) > 0 {
-			if jsonBytes, err := json.Marshal(product.Attributes); err == nil {
-				attributesJSON = string(jsonBytes)
-			}
-		}
-
-		// Convert categories to comma-separated IDs
-		categoryIDs := make([]string, len(product.Categories))
-		for i, cat := range product.Categories {
-			categoryIDs[i] = cat.ID.String()
-		}
-		categoryIDsStr := strings.Join(categoryIDs, ",")
-
-		row := []string{
-			product.SKU,
-			product.Name,
-			product.Description,
-			strconv.FormatInt(product.BasePrice, 10),
-			string(product.Status),
-			attributesJSON,
-			categoryIDsStr,
-		}
-
-		if err := writer.Write(row); err != nil {
-			return nil, fmt.Errorf("failed to write CSV row: %w", err)
-		}
-	}
-
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return nil, fmt.Errorf("CSV writer error: %w", err)
-	}
-
-	return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
-}
-
 // ValidateImport validates CSV data without importing
-func (s *importExportServiceImpl) ValidateImport(ctx context.Context, orgID uuid.UUID, csvReader io.Reader) (*pb.ValidateImportResponse, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ImportExportService.ValidateImport")
+func (s *importServiceImpl) ValidateImport(ctx context.Context, orgID uuid.UUID, csvReader io.Reader) (*pb.ValidateImportResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ImportService.ValidateImport")
 	defer span.Finish()
 
 	reader := csv.NewReader(csvReader)
@@ -300,23 +204,23 @@ func (s *importExportServiceImpl) ValidateImport(ctx context.Context, orgID uuid
 	for _, col := range requiredCols {
 		if _, ok := headerMap[col]; !ok {
 			return &pb.ValidateImportResponse{
-				IsValid:      false,
-				TotalRows:    0,
-				ValidRows:    0,
-				InvalidRows:  0,
-				Errors:       []*pb.ImportError{{RowNumber: 0, ErrorCode: "MISSING_COLUMN", ErrorMessage: fmt.Sprintf("missing required column: %s", col)}},
-				Warnings:     []string{},
+				IsValid:     false,
+				TotalRows:   0,
+				ValidRows:   0,
+				InvalidRows: 0,
+				Errors:      []*pb.ImportError{{RowNumber: 0, ErrorCode: "MISSING_COLUMN", ErrorMessage: fmt.Sprintf("missing required column: %s", col)}},
+				Warnings:    []string{},
 			}, nil
 		}
 	}
 
 	response := &pb.ValidateImportResponse{
-		IsValid:      true,
-		TotalRows:    0,
-		ValidRows:    0,
-		InvalidRows:  0,
-		Errors:       make([]*pb.ImportError, 0),
-		Warnings:     make([]string, 0),
+		IsValid:     true,
+		TotalRows:   0,
+		ValidRows:   0,
+		InvalidRows: 0,
+		Errors:      make([]*pb.ImportError, 0),
+		Warnings:    make([]string, 0),
 	}
 
 	rowNumber := 1
@@ -353,7 +257,7 @@ func (s *importExportServiceImpl) ValidateImport(ctx context.Context, orgID uuid
 }
 
 // GetImportTemplate generates a CSV template for imports
-func (s *importExportServiceImpl) GetImportTemplate(ctx context.Context, includeExamples bool) (io.ReadCloser, error) {
+func (s *importServiceImpl) GetImportTemplate(ctx context.Context, includeExamples bool) (io.ReadCloser, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
 
@@ -388,7 +292,7 @@ func (s *importExportServiceImpl) GetImportTemplate(ctx context.Context, include
 }
 
 // parseCSVRow parses a CSV row into a Product model
-func (s *importExportServiceImpl) parseCSVRow(record []string, headerMap map[string]int, orgID uuid.UUID) (*models.Product, error) {
+func (s *importServiceImpl) parseCSVRow(record []string, headerMap map[string]int, orgID uuid.UUID) (*models.Product, error) {
 	product := &models.Product{
 		OrganizationID: orgID,
 	}
@@ -464,9 +368,6 @@ func (s *importExportServiceImpl) parseCSVRow(record []string, headerMap map[str
 		}
 	}
 
-	// Category IDs (optional, handled separately after product creation)
-	// For now, we'll skip category assignment in CSV import
-
 	return product, nil
 }
 
@@ -477,18 +378,3 @@ func getSKUFromRecord(record []string, headerMap map[string]int) string {
 	}
 	return ""
 }
-
-// productStatusToStringForExport converts protobuf status to string for export
-func productStatusToStringForExport(status pb.ProductStatus) string {
-	switch status {
-	case pb.ProductStatus_PRODUCT_STATUS_DRAFT:
-		return "draft"
-	case pb.ProductStatus_PRODUCT_STATUS_ACTIVE:
-		return "active"
-	case pb.ProductStatus_PRODUCT_STATUS_DISCONTINUED:
-		return "discontinued"
-	default:
-		return "draft"
-	}
-}
-

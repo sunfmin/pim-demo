@@ -30,4 +30,3 @@ type ProductVariant struct {
 func (ProductVariant) TableName() string {
 	return "product_variants"
 }
-

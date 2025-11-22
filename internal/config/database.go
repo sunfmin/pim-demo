@@ -63,4 +63,3 @@ func CloseDatabase(db *gorm.DB) error {
 	}
 	return sqlDB.Close()
 }
-

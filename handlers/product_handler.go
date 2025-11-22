@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -43,7 +42,7 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.CreateProductRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -142,7 +141,7 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.UpdateProductRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -253,4 +252,3 @@ func (h *ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 func generateRequestID() string {
 	return uuid.New().String()
 }
-

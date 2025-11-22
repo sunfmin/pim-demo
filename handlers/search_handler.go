@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 )
@@ -32,9 +33,9 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "POST /api/v1/products/search")
 	defer span.Finish()
 
-	// Extract organization ID from context
-	orgID, ok := ctx.Value("organization_id").(uuid.UUID)
-	if !ok {
+	// Get organization ID from context
+	orgID, ok := middleware.GetOrganizationID(ctx)
+	if !ok || orgID == uuid.Nil {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: missing organization ID", services.ErrUnauthorized), generateRequestID())
 		return
@@ -42,7 +43,7 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.SearchProductsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		HandleServiceError(w, fmt.Errorf("%w: %v", services.ErrInvalidProduct, err), generateRequestID())
 		return
@@ -138,4 +139,3 @@ func modelToProtoProduct(product *models.Product) *pb.Product {
 		UpdatedAt:      timestamppb.New(product.UpdatedAt),
 	}
 }
-

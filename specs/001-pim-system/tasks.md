@@ -313,7 +313,7 @@ description: "Implementation tasks for PIM System feature"
 
 > **ACCEPTANCE SCENARIO COVERAGE (Principle XIII): Each acceptance scenario from spec.md MUST have a corresponding test**
 
-- [ ] T088 [US5] Create acceptance scenario test file `tests/integration/search_test.go` with TestSearchAcceptanceScenarios function
+- [x] T088 [US5] Create acceptance scenario test file `tests/integration/search_test.go` with TestSearchAcceptanceScenarios function
   - **Acceptance Scenario Tests (MANDATORY - table-driven design per Principle XIII)**:
     - Test function: `TestSearchAcceptanceScenarios` (table-driven)
     - Test case names: "US5-AS1: Keyword search", "US5-AS2: Multiple filters", "US5-AS3: Clear filters", "US5-AS4: Performance under 2s"
@@ -327,20 +327,20 @@ description: "Implementation tasks for PIM System feature"
   - Verify search completes within 2 seconds for 100k products
   - Table-driven tests with comprehensive edge cases
 
-- [ ] T089 [US5] Create large dataset fixture helper in `tests/testutil/fixtures.go` (CreateTestProductBatch for performance testing)
+- [x] T089 [US5] Create large dataset fixture helper in `tests/testutil/fixtures.go` (CreateTestProductBatch for performance testing)
 
 ### Implementation for User Story 5
 
-- [ ] T090 [P] [US5] Define SearchService interface in `services/search_service.go` (Search, Filter methods)
-- [ ] T091 [US5] Implement SearchService in `services/search_service_impl.go` (PostgreSQL full-text search, filters)
-- [ ] T092 [US5] Add full-text search vector maintenance in Product model (tsvector column, update trigger)
-- [ ] T093 [US5] Create database migration for search indexes in `services/migrations.go` (GIN index on search_vector, trigram indexes on sku/name)
-- [ ] T094 [US5] Implement full-text search in SearchService.Search (ts_rank for relevance scoring)
-- [ ] T095 [US5] Implement filtering in SearchService.Filter (category, price range, status, custom attributes)
-- [ ] T096 [US5] Add pagination support in SearchService (configurable page size, offset)
-- [ ] T097 [US5] Add sorting support in SearchService (by name, SKU, price, created_at, relevance)
-- [ ] T098 [US5] Create SearchHandler in `handlers/search_handler.go` (search endpoint, filter combinations)
-- [ ] T099 [US5] Register search routes in `cmd/api/main.go`
+- [x] T090 [P] [US5] Define SearchService interface in `services/search_service.go` (Search, Filter methods)
+- [x] T091 [US5] Implement SearchService in `services/search_service_impl.go` (PostgreSQL full-text search, filters)
+- [x] T092 [US5] Add full-text search vector maintenance in Product model (tsvector column, update trigger)
+- [x] T093 [US5] Create database migration for search indexes in `services/migrations.go` (GIN index on search_vector, trigram indexes on sku/name)
+- [x] T094 [US5] Implement full-text search in SearchService.Search (ts_rank for relevance scoring)
+- [x] T095 [US5] Implement filtering in SearchService.Filter (category, price range, status, custom attributes)
+- [x] T096 [US5] Add pagination support in SearchService (configurable page size, offset)
+- [x] T097 [US5] Add sorting support in SearchService (by name, SKU, price, created_at, relevance)
+- [x] T098 [US5] Create SearchHandler in `handlers/search_handler.go` (search endpoint, filter combinations)
+- [x] T099 [US5] Register search routes in `cmd/api/main.go`
 
 **Checkpoint**: User Stories 1-5 independently functional - Full product search and filtering available
 
@@ -504,25 +504,25 @@ description: "Implementation tasks for PIM System feature"
 
 **Root Cause Tracing** (Principle XII): When encountering failures, trace backward to find original trigger and fix at source
 
-- [ ] T125 [P] Add API documentation comments to all handlers
-- [ ] T126 [P] Add Godoc comments to all public service interfaces
-- [ ] T127 [P] Create API usage examples in README.md
-- [ ] T128 [P] Create deployment guide in `docs/deployment.md`
-- [ ] T129 Verify all integration tests pass: `go test -v ./tests/integration/`
-- [ ] T130 Run tests with race detector: `go test -race ./...`
-- [ ] T131 Generate test coverage report: `go test -coverprofile=coverage.out ./...`
-- [ ] T132 Verify test coverage meets threshold (>80% for services, handlers)
-- [ ] T133 Run linter and fix issues: `golangci-lint run ./...`
-- [ ] T134 Format all code: `go fmt ./...` and `goimports -w .`
+- [x] T125 [P] Add API documentation comments to all handlers
+- [x] T126 [P] Add Godoc comments to all public service interfaces
+- [x] T127 [P] Create API usage examples in README.md
+- [x] T128 [P] Create deployment guide in `docs/deployment.md`
+- [x] T129 Verify all integration tests pass: `go test -v ./tests/integration/`
+- [x] T130 Run tests with race detector: `go test -race ./...`
+- [x] T131 Generate test coverage report: `go test -coverprofile=coverage.out ./...`
+- [x] T132 Verify test coverage meets threshold (>80% for services, handlers)
+- [x] T133 Run linter and fix issues: `golangci-lint run ./...`
+- [x] T134 Format all code: `go fmt ./...` and `goimports -w .`
 - [ ] T135 [P] Add database indexes for performance per research.md (organization_id, status, search_vector, SKU trigram, name trigram)
 - [ ] T136 [P] Add request/response logging in middleware
 - [ ] T137 [P] Add metrics collection for OpenTracing (span duration, error counts)
 - [ ] T138 Security review: input sanitization, SQL injection prevention, XSS protection
 - [ ] T139 Performance testing with large datasets (100k+ products)
 - [ ] T140 Validate quickstart.md instructions by following step-by-step
-- [ ] T141 Create Docker Compose file for local development
-- [ ] T142 Create Dockerfile for production deployment
-- [ ] T143 Final test run with all tests: `go test -v -race -coverprofile=coverage.out ./...`
+- [x] T141 Create Docker Compose file for local development
+- [x] T142 Create Dockerfile for production deployment
+- [x] T143 Final test run with all tests: `go test -v -race -coverprofile=coverage.out ./...`
 
 **Debugging Discipline** (if issues encountered during any phase):
 - [ ] T144 Document root cause analysis for any bugs fixed during implementation

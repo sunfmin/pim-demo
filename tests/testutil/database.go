@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"gorm.io/gorm/logger"
 	"testing"
 	"time"
 
@@ -44,6 +45,7 @@ func SetupTestDB(t *testing.T) (*gorm.DB, func()) {
 
 	// Open GORM connection
 	db, err := gorm.Open(postgresDriver.Open(connStr), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
 		NowFunc: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -106,4 +108,3 @@ func TruncateTables(db *gorm.DB, tables ...string) error {
 
 	return nil
 }
-

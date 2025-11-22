@@ -39,4 +39,3 @@ func (c *Category) BeforeCreate(tx *gorm.DB) error {
 func (Category) TableName() string {
 	return "categories"
 }
-

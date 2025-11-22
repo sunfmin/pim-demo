@@ -588,4 +588,3 @@ func convertCategoryModelToProto(category *models.Category) *pb.Category {
 		UpdatedAt:      timestamppb.New(category.UpdatedAt),
 	}
 }
-

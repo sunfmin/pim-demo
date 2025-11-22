@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -42,7 +41,7 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.CreateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -137,7 +136,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Parse request body
 	var req pb.UpdateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := ReadJSON(r, &req); err != nil {
 		ext.Error.Set(span, true)
 		WriteError(w, ErrCodeInvalidRequest, generateRequestID())
 		return
@@ -276,4 +275,3 @@ func (h *CategoryHandler) GetTree(w http.ResponseWriter, r *http.Request) {
 	// Return response
 	WriteJSON(w, http.StatusOK, response)
 }
-

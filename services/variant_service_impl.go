@@ -51,7 +51,7 @@ func (s *variantServiceImpl) Create(ctx context.Context, orgID uuid.UUID, req *p
 
 	// Validate variant attributes are not empty
 	if len(req.VariantAttributes) == 0 {
-		return nil, fmt.Errorf("%w: variant attributes cannot be empty", ErrInvalidProduct)
+		return nil, fmt.Errorf("%w: variant attributes cannot be empty", ErrInvalidVariantData)
 	}
 
 	// Convert protobuf attributes to JSONB
@@ -356,4 +356,3 @@ func generateSKUFromPattern(pattern, parentSKU string, attributes map[string]str
 
 	return sku
 }
-

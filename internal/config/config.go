@@ -7,25 +7,25 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	DatabaseURL      string
-	Port             string
-	Environment      string
-	JaegerEndpoint   string
+	DatabaseURL       string
+	Port              string
+	Environment       string
+	JaegerEndpoint    string
 	JaegerServiceName string
-	AssetStoragePath string
-	LogLevel         string
+	AssetStoragePath  string
+	LogLevel          string
 }
 
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:      getEnv("DATABASE_URL", ""),
-		Port:             getEnv("PORT", "8080"),
-		Environment:      getEnv("ENV", "development"),
-		JaegerEndpoint:   getEnv("JAEGER_ENDPOINT", ""),
+		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		Port:              getEnv("PORT", "8080"),
+		Environment:       getEnv("ENV", "development"),
+		JaegerEndpoint:    getEnv("JAEGER_ENDPOINT", ""),
 		JaegerServiceName: getEnv("JAEGER_SERVICE_NAME", "pim-api"),
-		AssetStoragePath: getEnv("ASSET_STORAGE_PATH", "/var/pim/assets"),
-		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		AssetStoragePath:  getEnv("ASSET_STORAGE_PATH", "/var/pim/assets"),
+		LogLevel:          getEnv("LOG_LEVEL", "info"),
 	}
 
 	// Validate required configuration
@@ -43,4 +43,3 @@ func getEnv(key, defaultValue string) string {
 	}
 	return defaultValue
 }
-

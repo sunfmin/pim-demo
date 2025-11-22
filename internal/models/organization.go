@@ -30,4 +30,3 @@ func (o *Organization) BeforeCreate(tx *gorm.DB) error {
 func (Organization) TableName() string {
 	return "organizations"
 }
-

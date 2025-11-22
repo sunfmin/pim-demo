@@ -31,4 +31,3 @@ type VariantService interface {
 	// Generate generates variants from attribute combinations
 	Generate(ctx context.Context, orgID uuid.UUID, req *pb.GenerateVariantsRequest) ([]*models.ProductVariant, error)
 }
-

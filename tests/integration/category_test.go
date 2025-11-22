@@ -16,6 +16,7 @@ import (
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -54,7 +55,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 					IsActive:    true,
 				}
 
-				body, _ := json.Marshal(rootRequest)
+				body, _ := protojson.Marshal(rootRequest)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/categories", bytes.NewReader(body))
 				req = addOrgContext(req, testOrg.ID)
 
@@ -66,22 +67,22 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				}
 
 				var response pb.CreateCategoryResponse
-				json.NewDecoder(rec.Body).Decode(&response)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &response)
 
 				// Build expected from fixtures
 				expected := &pb.CreateCategoryResponse{
 					Category: &pb.Category{
-						Id:             response.Category.Id,              // Generated ID
-						OrganizationId: testOrg.ID.String(),               // From test fixture
-						ParentId:       "",                                // No parent (root)
-						Name:           rootRequest.Name,                  // From request fixture
-						Slug:           rootRequest.Slug,                  // From request fixture
-						Description:    rootRequest.Description,           // From request fixture
-						DisplayOrder:   rootRequest.DisplayOrder,          // From request fixture
-						IsActive:       rootRequest.IsActive,              // From request fixture
-						ProductCount:   0,                                 // No products yet
-						CreatedAt:      response.Category.CreatedAt,       // Generated timestamp
-						UpdatedAt:      response.Category.UpdatedAt,       // Generated timestamp
+						Id:             response.Category.Id,        // Generated ID
+						OrganizationId: testOrg.ID.String(),         // From test fixture
+						ParentId:       "",                          // No parent (root)
+						Name:           rootRequest.Name,            // From request fixture
+						Slug:           rootRequest.Slug,            // From request fixture
+						Description:    rootRequest.Description,     // From request fixture
+						DisplayOrder:   rootRequest.DisplayOrder,    // From request fixture
+						IsActive:       rootRequest.IsActive,        // From request fixture
+						ProductCount:   0,                           // No products yet
+						CreatedAt:      response.Category.CreatedAt, // Generated timestamp
+						UpdatedAt:      response.Category.UpdatedAt, // Generated timestamp
 					},
 				}
 
@@ -98,7 +99,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 					IsActive:    true,
 				}
 
-				body2, _ := json.Marshal(childRequest)
+				body2, _ := protojson.Marshal(childRequest)
 				req2 := httptest.NewRequest(http.MethodPost, "/api/v1/categories", bytes.NewReader(body2))
 				req2 = addOrgContext(req2, testOrg.ID)
 
@@ -110,7 +111,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				}
 
 				var childResponse pb.CreateCategoryResponse
-				json.NewDecoder(rec2.Body).Decode(&childResponse)
+				testutil.UnmarshalProtoResponse(t, rec2.Body, &childResponse)
 
 				// Verify parent ID is set
 				if childResponse.Category.ParentId != response.Category.Id {
@@ -124,7 +125,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				categoryHandler.List(listRec, listReq)
 
 				var listResponse pb.ListCategoriesResponse
-				json.NewDecoder(listRec.Body).Decode(&listResponse)
+				testutil.UnmarshalProtoResponse(t, listRec.Body, &listResponse)
 
 				if len(listResponse.Categories) != 2 {
 					t.Errorf("Expected 2 categories, got %d", len(listResponse.Categories))
@@ -156,7 +157,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 					CategoryIds: []string{cat1.ID.String(), cat2.ID.String()},
 				}
 
-				body, _ := json.Marshal(productRequest)
+				body, _ := protojson.Marshal(productRequest)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(body))
 				req = addOrgContext(req, testOrg.ID)
 
@@ -168,7 +169,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				}
 
 				var response pb.CreateProductResponse
-				json.NewDecoder(rec.Body).Decode(&response)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &response)
 
 				// Verify product was created
 				if response.Product.Id == "" {
@@ -212,7 +213,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 					CategoryIds: []string{cat1.ID.String(), cat2.ID.String()},
 				}
 
-				body, _ := json.Marshal(productRequest)
+				body, _ := protojson.Marshal(productRequest)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(body))
 				req = addOrgContext(req, testOrg.ID)
 
@@ -220,14 +221,14 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				productHandler.Create(rec, req)
 
 				var createResponse pb.CreateProductResponse
-				json.NewDecoder(rec.Body).Decode(&createResponse)
+				testutil.UnmarshalProtoResponse(t, rec.Body, &createResponse)
 
 				// Update product to remove one category
 				updateRequest := &pb.UpdateProductRequest{
 					CategoryIds: []string{cat1.ID.String()}, // Only cat1 now
 				}
 
-				body2, _ := json.Marshal(updateRequest)
+				body2, _ := protojson.Marshal(updateRequest)
 				req2 := httptest.NewRequest(http.MethodPut, "/api/v1/products/"+createResponse.Product.Id, bytes.NewReader(body2))
 				req2 = addOrgContext(req2, testOrg.ID)
 
@@ -299,7 +300,7 @@ func TestCategoryAcceptanceScenarios(t *testing.T) {
 				}
 
 				var deleteResponse pb.DeleteCategoryResponse
-				json.NewDecoder(rec2.Body).Decode(&deleteResponse)
+				testutil.UnmarshalProtoResponse(t, rec2.Body, &deleteResponse)
 
 				if !deleteResponse.Success {
 					t.Error("Expected success to be true")
@@ -356,7 +357,7 @@ func TestCategoryEdgeCases(t *testing.T) {
 			ParentId: child.ID.String(),
 		}
 
-		body, _ := json.Marshal(updateRequest)
+		body, _ := protojson.Marshal(updateRequest)
 		req := httptest.NewRequest(http.MethodPut, "/api/v1/categories/"+parent.ID.String(), bytes.NewReader(body))
 		req = addOrgContext(req, org.ID)
 
@@ -414,4 +415,3 @@ func TestCategoryEdgeCases(t *testing.T) {
 		t.Logf("✅ Created hierarchy: %s -> %s -> %s", root.Name, child.Name, grandchild.Name)
 	})
 }
-

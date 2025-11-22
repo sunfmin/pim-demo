@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/yourorg/pim-demo/handlers"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
@@ -64,18 +66,21 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 				writer.WriteField("asset_type", "image")
 				writer.WriteField("alt_text", "Laptop front view")
 
-				// Add file
-				part, err := writer.CreateFormFile("file", "laptop.jpg")
+				// Add file with explicit Content-Type
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", "laptop.jpg"))
+				h.Set("Content-Type", "image/jpeg")
+				part, err := writer.CreatePart(h)
 				if err != nil {
 					t.Fatalf("Failed to create form file: %v", err)
 				}
-				// Write fake image data
-				part.Write([]byte("fake-jpeg-data-for-testing"))
+				// Write fake image data (valid header)
+				part.Write([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46})
 				writer.Close()
 
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets", body)
 				httpReq.Header.Set("Content-Type", writer.FormDataContentType())
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -87,9 +92,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 				}
 
 				var resp pb.UploadAssetResponse
-				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-					t.Fatalf("Failed to unmarshal response: %v", err)
-				}
+				testutil.UnmarshalProtoResponse(t, w.Body, &resp)
 
 				if resp.Asset == nil {
 					t.Fatal("Asset should not be nil")
@@ -117,15 +120,15 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization, product *models.Product) {
 				// Given: Product has multiple images
 				asset1 := testutil.CreateTestAsset(t, db, product.ID, org.ID, storageDir, map[string]interface{}{
-					"file_name":   "image1.jpg",
-					"asset_type":  "image",
-					"is_primary":  false,
+					"file_name":  "image1.jpg",
+					"asset_type": "image",
+					"is_primary": false,
 				})
 
 				asset2 := testutil.CreateTestAsset(t, db, product.ID, org.ID, storageDir, map[string]interface{}{
-					"file_name":   "image2.jpg",
-					"asset_type":  "image",
-					"is_primary":  false,
+					"file_name":  "image2.jpg",
+					"asset_type": "image",
+					"is_primary": false,
 				})
 
 				// When: Product manager sets asset2 as primary
@@ -136,7 +139,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 				reqBody, _ := json.Marshal(req)
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets/"+asset2.ID.String()+"/set-primary", bytes.NewReader(reqBody))
 				httpReq.Header.Set("Content-Type", "application/json")
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -171,7 +174,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 
 				// When: Product manager deletes the asset
 				httpReq := httptest.NewRequest("DELETE", "/api/v1/assets/"+asset.ID.String(), nil)
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -216,7 +219,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets", body)
 				httpReq.Header.Set("Content-Type", writer.FormDataContentType())
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				httpReq = httpReq.WithContext(ctx)
 
 				w := httptest.NewRecorder()
@@ -229,7 +232,7 @@ func TestAssetAcceptanceScenarios(t *testing.T) {
 
 				var errResp map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &errResp)
-				if errCode, ok := errResp["error_code"].(string); !ok || errCode != "INVALID_FILE_FORMAT" {
+				if errCode, ok := errResp["code"].(string); !ok || errCode != "INVALID_FILE_FORMAT" {
 					t.Errorf("Expected error code INVALID_FILE_FORMAT, got %v", errResp)
 				}
 			},
@@ -291,7 +294,11 @@ func TestAssetEdgeCases(t *testing.T) {
 				writer.WriteField("product_id", product.ID.String())
 				writer.WriteField("asset_type", "image")
 
-				part, _ := writer.CreateFormFile("file", "huge-image.jpg")
+				// Use CreatePart to set Content-Type
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", "huge-image.jpg"))
+				h.Set("Content-Type", "image/jpeg")
+				part, _ := writer.CreatePart(h)
 				// Write 11MB of data
 				largeData := make([]byte, 11*1024*1024)
 				part.Write(largeData)
@@ -299,7 +306,7 @@ func TestAssetEdgeCases(t *testing.T) {
 
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets", body)
 				httpReq.Header.Set("Content-Type", writer.FormDataContentType())
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusRequestEntityTooLarge,
@@ -333,7 +340,7 @@ func TestAssetEdgeCases(t *testing.T) {
 
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets", body)
 				httpReq.Header.Set("Content-Type", writer.FormDataContentType())
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -353,7 +360,7 @@ func TestAssetEdgeCases(t *testing.T) {
 
 				httpReq := httptest.NewRequest("POST", "/api/v1/assets", body)
 				httpReq.Header.Set("Content-Type", writer.FormDataContentType())
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 				return ctx, httpReq.WithContext(ctx)
 			},
 			expectedStatus: http.StatusNotFound,
@@ -374,7 +381,7 @@ func TestAssetEdgeCases(t *testing.T) {
 
 				// Delete product
 				httpReq := httptest.NewRequest("DELETE", "/api/v1/products/"+product.ID.String(), nil)
-				ctx := context.WithValue(httpReq.Context(), "organization_id", org.ID)
+				ctx := context.WithValue(httpReq.Context(), middleware.OrganizationIDKey, org.ID)
 
 				productHandler := handlers.NewProductHandler(productService)
 				w := httptest.NewRecorder()
@@ -416,11 +423,10 @@ func TestAssetEdgeCases(t *testing.T) {
 			if tt.expectedError != "" && w.Code >= 400 {
 				var errResp map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &errResp)
-				if errCode, ok := errResp["error_code"].(string); !ok || errCode != tt.expectedError {
+				if errCode, ok := errResp["code"].(string); !ok || errCode != tt.expectedError {
 					t.Errorf("Expected error code %s, got %v", tt.expectedError, errResp)
 				}
 			}
 		})
 	}
 }
-

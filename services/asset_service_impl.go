@@ -48,10 +48,10 @@ var (
 		"application/pdf": true,
 	}
 
-	maxImageSize    int64 = 10 * 1024 * 1024  // 10 MB
-	maxVideoSize    int64 = 100 * 1024 * 1024 // 100 MB
-	maxDocumentSize int64 = 10 * 1024 * 1024  // 10 MB
-	maxAssetsPerProduct     = 50
+	maxImageSize        int64 = 10 * 1024 * 1024  // 10 MB
+	maxVideoSize        int64 = 100 * 1024 * 1024 // 100 MB
+	maxDocumentSize     int64 = 10 * 1024 * 1024  // 10 MB
+	maxAssetsPerProduct       = 50
 )
 
 // Upload uploads a new asset file and creates database record
@@ -71,7 +71,7 @@ func (s *assetServiceImpl) Upload(ctx context.Context, orgID uuid.UUID, req *Upl
 		Where("product_id = ? AND organization_id = ?", req.ProductID, orgID).
 		Count(&assetCount)
 	if assetCount >= int64(maxAssetsPerProduct) {
-		return nil, fmt.Errorf("%w: maximum %d assets per product", ErrInvalidProduct, maxAssetsPerProduct)
+		return nil, fmt.Errorf("%w: maximum %d assets per product", ErrAssetLimitExceeded, maxAssetsPerProduct)
 	}
 
 	// Validate file type
@@ -323,4 +323,3 @@ func validateFileSize(fileSize int64, assetType string) error {
 func generateStoragePath(baseDir string, orgID, productID, assetID uuid.UUID, ext string) string {
 	return filepath.Join(baseDir, orgID.String(), productID.String(), fmt.Sprintf("%s%s", assetID.String(), ext))
 }
-

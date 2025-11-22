@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/google/uuid"
+	pb "github.com/yourorg/pim-demo/api/gen/v1"
 )
 
 // CategoryService defines the interface for category business logic
@@ -30,4 +30,3 @@ type CategoryService interface {
 	// GetPath retrieves the full path to a category
 	GetPath(ctx context.Context, id uuid.UUID, orgID uuid.UUID) (*pb.GetCategoryPathResponse, error)
 }
-

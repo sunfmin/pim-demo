@@ -80,4 +80,3 @@ func (fs *FilesystemStorage) Delete(ctx context.Context, storagePath string) err
 
 	return nil
 }
-

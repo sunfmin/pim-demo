@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/google/uuid"
+	pb "github.com/yourorg/pim-demo/api/gen/v1"
 )
 
 // ProductService defines the interface for product business logic
@@ -24,4 +24,3 @@ type ProductService interface {
 	// List retrieves products with filtering and pagination
 	List(ctx context.Context, req *pb.ListProductsRequest, orgID uuid.UUID) (*pb.ListProductsResponse, error)
 }
-

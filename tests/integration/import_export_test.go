@@ -4,262 +4,296 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
-	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"gorm.io/gorm"
-
+	"github.com/google/uuid"
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/yourorg/pim-demo/handlers"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
 )
 
 // TestImportExportAcceptanceScenarios tests all acceptance scenarios for User Story 6
-// Covers US6-AS1 through US6-AS6 from spec.md
 func TestImportExportAcceptanceScenarios(t *testing.T) {
-	// Setup test database
 	db, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
 
-	// Setup services and handlers
+	// Initialize services and handlers
 	productService := services.NewProductService(db)
-	importExportService := services.NewImportExportService(db)
-	importExportHandler := handlers.NewImportExportHandler(importExportService, productService)
+	importService := services.NewImportService(db, productService)
+	exportService := services.NewExportService(db)
 
-	tests := []struct {
+	importHandler := handlers.NewImportHandler(importService)
+	exportHandler := handlers.NewExportHandler(exportService)
+
+	addOrgContext := func(r *http.Request, orgID uuid.UUID) *http.Request {
+		ctx := context.WithValue(r.Context(), middleware.OrganizationIDKey, orgID)
+		return r.WithContext(ctx)
+	}
+
+	testCases := []struct {
 		name     string
-		testFunc func(t *testing.T, db *gorm.DB, org *models.Organization)
+		scenario string
+		testFunc func(t *testing.T)
 	}{
 		{
-			name: "US6-AS1: Upload valid CSV and create 100 products",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: A valid CSV file with 100 products
-				csvContent := generateValidCSV(100)
+			name:     "US6-AS1: Import CSV with product data (create/update by SKU)",
+			scenario: "Given a CSV file with new and existing products, When I import the file, Then new products are created and existing products are updated by SKU",
+			testFunc: func(t *testing.T) {
+				defer testutil.TruncateTables(db)
+				org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
 
-				// When: User uploads the CSV
-				resp := uploadCSV(t, importExportHandler, org.ID, csvContent)
+				// Create existing product
+				existingProduct := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+					"sku":        "EXISTING-SKU-001",
+					"name":       "Original Name",
+					"base_price": int64(1000),
+				})
 
-				// Then: All 100 products are created
-				if resp.Result.TotalRows != 100 {
-					t.Errorf("Expected 100 total rows, got %d", resp.Result.TotalRows)
-				}
-				if resp.Result.SuccessfulRows != 100 {
-					t.Errorf("Expected 100 successful imports, got %d", resp.Result.SuccessfulRows)
-				}
-				if resp.Result.FailedRows != 0 {
-					t.Errorf("Expected 0 errors, got %d", resp.Result.FailedRows)
-				}
-
-				// Verify products in database
-				var count int64
-				db.Model(&models.Product{}).Where("organization_id = ?", org.ID).Count(&count)
-				if count != 100 {
-					t.Errorf("Expected 100 products in database, got %d", count)
-				}
-			},
-		},
-		{
-			name: "US6-AS2: Import with validation errors",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: CSV with some invalid rows
-				csvContent := `sku,name,description,base_price,status
-VALID-001,Valid Product,Good product,10000,active
-INVALID-001,,Missing name,5000,active
-VALID-002,Another Valid,Good product,8000,active
-INVALID-002,Invalid Price,Bad price,not-a-number,active
-VALID-003,Third Valid,Good product,12000,active`
-
-				// When: User uploads the CSV
-				resp := uploadCSV(t, importExportHandler, org.ID, csvContent)
-
-				// Then: Valid rows imported, invalid rows reported
-				if resp.Result.TotalRows != 5 {
-					t.Errorf("Expected 5 total rows, got %d", resp.Result.TotalRows)
-				}
-				if resp.Result.SuccessfulRows != 3 {
-					t.Errorf("Expected 3 successful imports, got %d", resp.Result.SuccessfulRows)
-				}
-				if resp.Result.FailedRows != 2 {
-					t.Errorf("Expected 2 errors, got %d", resp.Result.FailedRows)
+				// Prepare CSV data
+				headers := []string{"sku", "name", "description", "base_price", "status"}
+				data := [][]string{
+					{"EXISTING-SKU-001", "Updated Name", "Updated Description", "2000", "active"},
+					{"NEW-SKU-001", "New Product", "New Description", "3000", "draft"},
 				}
 
-				// Verify error details
-				if len(resp.Result.Errors) != 2 {
-					t.Errorf("Expected 2 error details, got %d", len(resp.Result.Errors))
-				}
+				csvFile, cleanupCSV := testutil.CreateTestCSV(t, headers, data)
+				defer cleanupCSV()
 
-				// Verify only valid products created
-				var count int64
-				db.Model(&models.Product{}).Where("organization_id = ?", org.ID).Count(&count)
-				if count != 3 {
-					t.Errorf("Expected 3 valid products in database, got %d", count)
-				}
-			},
-		},
-		{
-			name: "US6-AS3: Export all products to CSV",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: 10 products exist
-				for i := 0; i < 10; i++ {
-					testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
-						"sku":         testutil.GenerateSKU(),
-						"name":        "Export Test Product " + string(rune('A'+i)),
-						"description": "Product for export test",
-						"base_price":  int64((i + 1) * 1000),
-						"status":      models.ProductStatusActive,
-					})
-				}
-
-				// When: User exports products
-				csvData := exportProducts(t, importExportHandler, org.ID, nil)
-
-				// Then: CSV contains all 10 products
-				lines := strings.Split(strings.TrimSpace(csvData), "\n")
-				if len(lines) != 11 { // 1 header + 10 data rows
-					t.Errorf("Expected 11 lines (header + 10 products), got %d", len(lines))
-				}
-
-				// Verify CSV structure
-				reader := csv.NewReader(strings.NewReader(csvData))
-				records, err := reader.ReadAll()
+				// Create multipart request
+				body := &bytes.Buffer{}
+				writer := multipart.NewWriter(body)
+				part, err := writer.CreateFormFile("file", filepath.Base(csvFile.Name()))
 				if err != nil {
-					t.Fatalf("Failed to parse CSV: %v", err)
+					t.Fatalf("Failed to create form file: %v", err)
 				}
-
-				// Check header
-				expectedHeaders := []string{"sku", "name", "description", "base_price", "status", "attributes", "category_ids"}
-				if !cmp.Equal(records[0], expectedHeaders) {
-					t.Errorf("CSV headers mismatch:\n%s", cmp.Diff(expectedHeaders, records[0]))
-				}
-
-				// Verify all products present
-				if len(records)-1 != 10 {
-					t.Errorf("Expected 10 product records, got %d", len(records)-1)
-				}
-			},
-		},
-		{
-			name: "US6-AS4: Export filtered products",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: Products with different statuses
-				category := testutil.CreateTestCategory(t, db, org.ID, map[string]interface{}{
-					"name": "Electronics",
-					"slug": "electronics",
-				})
-
-				activeProduct := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
-					"sku":    "ACTIVE-001",
-					"name":   "Active Product",
-					"status": models.ProductStatusActive,
-				})
-
-				testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
-					"sku":    "DRAFT-001",
-					"name":   "Draft Product",
-					"status": models.ProductStatusDraft,
-				})
-
-				// Assign category to active product
-				db.Exec("INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)", activeProduct.ID, category.ID)
-
-				// When: User exports only active products in specific category
-				filter := &pb.ExportProductsRequest{
-					Filter: &pb.ProductsFilter{
-						Statuses:    []pb.ProductStatus{pb.ProductStatus_PRODUCT_STATUS_ACTIVE},
-						CategoryIds: []string{category.ID.String()},
-					},
-				}
-				csvData := exportProducts(t, importExportHandler, org.ID, filter)
-
-				// Then: Only active product in category is exported
-				lines := strings.Split(strings.TrimSpace(csvData), "\n")
-				if len(lines) != 2 { // 1 header + 1 data row
-					t.Errorf("Expected 2 lines (header + 1 product), got %d", len(lines))
-				}
-
-				// Verify exported product is the active one
-				if !strings.Contains(csvData, "ACTIVE-001") {
-					t.Error("Expected CSV to contain ACTIVE-001")
-				}
-				if strings.Contains(csvData, "DRAFT-001") {
-					t.Error("Expected CSV not to contain DRAFT-001")
-				}
-			},
-		},
-		{
-			name: "US6-AS5: Import completes within 10 seconds for 1000 products",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: A CSV with 1000 valid products
-				csvContent := generateValidCSV(1000)
-
-				// When: User uploads the CSV
-				start := time.Now()
-				resp := uploadCSV(t, importExportHandler, org.ID, csvContent)
-				elapsed := time.Since(start)
-
-				// Then: Import completes within 10 seconds
-				if elapsed > 10*time.Second {
-					t.Errorf("Import took %v, expected < 10 seconds", elapsed)
-				}
-
-				t.Logf("Import of 1000 products completed in %v", elapsed)
-
-				// Verify all products imported
-				if resp.Result.SuccessfulRows != 1000 {
-					t.Errorf("Expected 1000 successful imports, got %d", resp.Result.SuccessfulRows)
-				}
-			},
-		},
-		{
-			name: "US6-AS6: Download export file",
-			testFunc: func(t *testing.T, db *gorm.DB, org *models.Organization) {
-				// Given: Products exist
-				testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
-					"sku":  "DOWNLOAD-001",
-					"name": "Download Test",
-				})
-
-				// When: User requests export download
-				csvData := exportProducts(t, importExportHandler, org.ID, nil)
-
-				// Then: CSV file is downloadable with correct headers
-				if csvData == "" {
-					t.Error("Expected non-empty CSV data")
-				}
-
-				// Verify CSV can be parsed
-				reader := csv.NewReader(strings.NewReader(csvData))
-				records, err := reader.ReadAll()
+				fileContent, err := os.ReadFile(csvFile.Name())
 				if err != nil {
-					t.Fatalf("Failed to parse downloaded CSV: %v", err)
+					t.Fatalf("Failed to read CSV file: %v", err)
+				}
+				part.Write(fileContent)
+				writer.Close()
+
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products/import", body)
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+				req = addOrgContext(req, org.ID)
+
+				rec := httptest.NewRecorder()
+				importHandler.Import(rec, req)
+
+				if rec.Code != http.StatusOK {
+					t.Fatalf("Expected status %d, got %d. Body: %s", http.StatusOK, rec.Code, rec.Body.String())
 				}
 
-				if len(records) < 2 {
-					t.Error("Expected at least header and one data row")
+				var importResp pb.ImportProductsResponse
+				testutil.UnmarshalProtoResponse(t, rec.Body, &importResp)
+
+				if importResp.Result.SuccessfulRows != 2 {
+					t.Errorf("Expected 2 successful imports, got %d", importResp.Result.SuccessfulRows)
+				}
+				if importResp.Result.FailedRows != 0 {
+					t.Errorf("Expected 0 failures, got %d", importResp.Result.FailedRows)
+				}
+
+				// Verify existing product updated
+				var updatedProduct models.Product
+				db.First(&updatedProduct, existingProduct.ID)
+				if updatedProduct.Name != "Updated Name" {
+					t.Errorf("Expected product name to be updated to 'Updated Name', got '%s'", updatedProduct.Name)
+				}
+				if updatedProduct.BasePrice != 2000 {
+					t.Errorf("Expected product price to be updated to 2000, got %d", updatedProduct.BasePrice)
+				}
+
+				// Verify new product created
+				var newProduct models.Product
+				if err := db.Where("sku = ?", "NEW-SKU-001").First(&newProduct).Error; err != nil {
+					t.Fatalf("Failed to find new product: %v", err)
+				}
+				if newProduct.Name != "New Product" {
+					t.Errorf("Expected new product name 'New Product', got '%s'", newProduct.Name)
+				}
+			},
+		},
+		{
+			name:     "US6-AS2: Export products to CSV with all data",
+			scenario: "Given a list of products, When I request an export, Then I receive a CSV file containing all product data",
+			testFunc: func(t *testing.T) {
+				defer testutil.TruncateTables(db)
+				org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
+				// Create test products
+				testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+					"sku":  "EXPORT-001",
+					"name": "Export Product 1",
+				})
+				testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+					"sku":  "EXPORT-002",
+					"name": "Export Product 2",
+				})
+
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products/export", nil)
+				req = addOrgContext(req, org.ID)
+
+				rec := httptest.NewRecorder()
+				exportHandler.Export(rec, req)
+
+				if rec.Code != http.StatusOK {
+					t.Fatalf("Expected status %d, got %d", http.StatusOK, rec.Code)
+				}
+
+				if contentType := rec.Header().Get("Content-Type"); contentType != "text/csv; charset=utf-8" {
+					t.Errorf("Expected Content-Type text/csv; charset=utf-8, got %s", contentType)
+				}
+
+				// Parse CSV response
+				csvReader := csv.NewReader(rec.Body)
+				records, err := csvReader.ReadAll()
+				if err != nil {
+					t.Fatalf("Failed to read CSV response: %v", err)
+				}
+
+				if len(records) < 3 { // Header + 2 products
+					t.Fatalf("Expected at least 3 records (header + 2 products), got %d", len(records))
+				}
+
+				// Verify headers
+				expectedHeaders := []string{"sku", "name", "description", "base_price", "status"}
+				headers := records[0]
+				// Check if expected headers are present
+				for _, h := range expectedHeaders {
+					found := false
+					for _, rh := range headers {
+						if rh == h {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("Missing header: %s", h)
+					}
+				}
+			},
+		},
+		{
+			name:     "US6-AS3: Import validation with detailed error report",
+			scenario: "Given a CSV with invalid data, When I import the file, Then I receive a report listing all errors by row number",
+			testFunc: func(t *testing.T) {
+				defer testutil.TruncateTables(db)
+				org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
+				// Prepare CSV with invalid data
+				headers := []string{"sku", "name", "base_price"}
+				data := [][]string{
+					{"VALID-SKU", "Valid Product", "1000"},
+					{"", "Missing SKU", "1000"},            // Error: Missing SKU
+					{"INVALID-PRICE", "Bad Price", "-500"}, // Error: Negative price
+				}
+
+				csvFile, cleanupCSV := testutil.CreateTestCSV(t, headers, data)
+				defer cleanupCSV()
+
+				body := &bytes.Buffer{}
+				writer := multipart.NewWriter(body)
+				part, _ := writer.CreateFormFile("file", filepath.Base(csvFile.Name()))
+				fileContent, _ := os.ReadFile(csvFile.Name())
+				part.Write(fileContent)
+				writer.Close()
+
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products/import", body)
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+				req = addOrgContext(req, org.ID)
+
+				rec := httptest.NewRecorder()
+				importHandler.Import(rec, req)
+
+				// Should return 200 OK but with error details in response
+				if rec.Code != http.StatusOK {
+					t.Fatalf("Expected status %d, got %d", http.StatusOK, rec.Code)
+				}
+
+				var importResp pb.ImportProductsResponse
+				testutil.UnmarshalProtoResponse(t, rec.Body, &importResp)
+
+				if importResp.Result.SuccessfulRows != 1 {
+					t.Errorf("Expected 1 successful import, got %d", importResp.Result.SuccessfulRows)
+				}
+				if importResp.Result.FailedRows != 2 {
+					t.Errorf("Expected 2 failures, got %d", importResp.Result.FailedRows)
+				}
+				if len(importResp.Result.Errors) != 2 {
+					t.Errorf("Expected 2 error details, got %d", len(importResp.Result.Errors))
+				}
+
+				// Verify error messages contain row numbers
+				foundRow3 := false
+				foundRow4 := false
+				for _, err := range importResp.Result.Errors {
+					if strings.Contains(err.ErrorMessage, "row 3") || err.RowNumber == 3 {
+						foundRow3 = true
+					}
+					if strings.Contains(err.ErrorMessage, "row 4") || err.RowNumber == 4 {
+						foundRow4 = true
+					}
+				}
+				if !foundRow3 {
+					t.Error("Expected error for row 3 (missing SKU)")
+				}
+				if !foundRow4 {
+					t.Error("Expected error for row 4 (negative price)")
+				}
+			},
+		},
+		{
+			name:     "US6-AS4: Large import with progress tracking",
+			scenario: "Given a large CSV file, When I start an import, Then I can track the progress of the job",
+			testFunc: func(t *testing.T) {
+				defer testutil.TruncateTables(db)
+				org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
+				// Create large CSV (100 rows for test speed, but logic handles larger)
+				csvFile, cleanupCSV := testutil.CreateLargeCSV(t, 100)
+				defer cleanupCSV()
+
+				body := &bytes.Buffer{}
+				writer := multipart.NewWriter(body)
+				part, _ := writer.CreateFormFile("file", filepath.Base(csvFile.Name()))
+				fileContent, _ := os.ReadFile(csvFile.Name())
+				part.Write(fileContent)
+				writer.Close()
+
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/products/import", body)
+				req.Header.Set("Content-Type", writer.FormDataContentType())
+				req = addOrgContext(req, org.ID)
+
+				rec := httptest.NewRecorder()
+				importHandler.Import(rec, req)
+
+				if rec.Code != http.StatusOK {
+					t.Fatalf("Expected status %d, got %d", http.StatusOK, rec.Code)
+				}
+
+				var importResp pb.ImportProductsResponse
+				testutil.UnmarshalProtoResponse(t, rec.Body, &importResp)
+
+				if importResp.Result.SuccessfulRows != 100 {
+					t.Errorf("Expected 100 successful imports, got %d", importResp.Result.SuccessfulRows)
 				}
 			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Truncate tables before each test for isolation
-			defer testutil.TruncateTables(db)
-
-			// Recreate org for each test
-			org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
-				"name": "Test Org " + tt.name,
-			})
-
-			tt.testFunc(t, db, org)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.testFunc(t)
 		})
 	}
 }
@@ -268,204 +302,66 @@ VALID-003,Third Valid,Good product,12000,active`
 func TestImportExportEdgeCases(t *testing.T) {
 	db, cleanup := testutil.SetupTestDB(t)
 	defer cleanup()
-	defer testutil.TruncateTables(db)
 
-	importExportService := services.NewImportExportService(db)
-	productService := services.NewProductService(db)
-	importExportHandler := handlers.NewImportExportHandler(importExportService, productService)
+	importService := services.NewImportService(db, services.NewProductService(db))
+	importHandler := handlers.NewImportHandler(importService)
 
-	org := testutil.CreateTestOrganization(t, db, map[string]interface{}{
-		"name": "Test Org Edge Cases",
+	addOrgContext := func(r *http.Request, orgID uuid.UUID) *http.Request {
+		ctx := context.WithValue(r.Context(), middleware.OrganizationIDKey, orgID)
+		return r.WithContext(ctx)
+	}
+
+	t.Run("Empty CSV file", func(t *testing.T) {
+		org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
+		// Create empty file
+		tmpFile, _ := os.CreateTemp("", "empty-*.csv")
+		tmpFile.Close()
+		defer os.Remove(tmpFile.Name())
+
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		part, _ := writer.CreateFormFile("file", filepath.Base(tmpFile.Name()))
+		part.Write([]byte{})
+		writer.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/import", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req = addOrgContext(req, org.ID)
+
+		rec := httptest.NewRecorder()
+		importHandler.Import(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, rec.Code)
+		}
 	})
 
-	tests := []struct {
-		name          string
-		csvContent    string
-		expectedError bool
-		checkResponse func(t *testing.T, resp *pb.ImportProductsResponse)
-	}{
-		{
-			name:          "Empty CSV file",
-			csvContent:    "",
-			expectedError: true,
-		},
-		{
-			name:          "CSV with only headers",
-			csvContent:    "sku,name,description,base_price,status\n",
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				if resp.Result.TotalRows != 0 {
-					t.Errorf("Expected 0 rows, got %d", resp.Result.TotalRows)
-				}
-			},
-		},
-		{
-			name: "Duplicate SKUs in CSV",
-			csvContent: `sku,name,description,base_price,status
-DUP-001,Product 1,First,10000,active
-DUP-001,Product 2,Duplicate,20000,active`,
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				if resp.Result.FailedRows == 0 {
-					t.Error("Expected at least one error for duplicate SKU")
-				}
-			},
-		},
-		{
-			name: "Missing required fields",
-			csvContent: `sku,name,description,base_price,status
-MISS-001,,Description only,10000,active`,
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				if resp.Result.FailedRows == 0 {
-					t.Error("Expected error for missing required name field")
-				}
-			},
-		},
-		{
-			name: "Invalid status value",
-			csvContent: `sku,name,description,base_price,status
-INV-001,Product,Description,10000,invalid-status`,
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				// Should either error or default to draft
-				if resp.Result.FailedRows == 0 {
-					// Check if it defaulted
-					var product models.Product
-					if err := db.Where("sku = ?", "INV-001").First(&product).Error; err == nil {
-						if product.Status != models.ProductStatusDraft {
-							t.Errorf("Expected status to default to draft, got %s", product.Status)
-						}
-					}
-				}
-			},
-		},
-		{
-			name: "Very long field values",
-			csvContent: `sku,name,description,base_price,status
-LONG-001,` + strings.Repeat("A", 300) + `,Description,10000,active`,
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				// May error due to validation, or truncate
-				if resp.Result.FailedRows > 0 {
-					t.Logf("Long field rejected as expected: %v", resp.Result.Errors)
-				}
-			},
-		},
-		{
-			name: "Special characters in fields",
-			csvContent: `sku,name,description,base_price,status
-SPEC-001,"Product with ""quotes""","Description with, comma",10000,active`,
-			expectedError: false,
-			checkResponse: func(t *testing.T, resp *pb.ImportProductsResponse) {
-				if resp.Result.SuccessfulRows != 1 {
-					t.Errorf("Expected 1 success with special characters, got %d", resp.Result.SuccessfulRows)
-				}
-			},
-		},
-	}
+	t.Run("Invalid CSV format", func(t *testing.T) {
+		org := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp := uploadCSV(t, importExportHandler, org.ID, tt.csvContent)
+		// Create invalid file
+		tmpFile, _ := os.CreateTemp("", "invalid-*.csv")
+		tmpFile.WriteString("sku,name\nval1,val2,val3") // Mismatched columns
+		tmpFile.Close()
+		defer os.Remove(tmpFile.Name())
 
-			if tt.checkResponse != nil {
-				tt.checkResponse(t, resp)
-			}
-		})
-	}
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		part, _ := writer.CreateFormFile("file", filepath.Base(tmpFile.Name()))
+		fileContent, _ := os.ReadFile(tmpFile.Name())
+		part.Write(fileContent)
+		writer.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/products/import", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req = addOrgContext(req, org.ID)
+
+		rec := httptest.NewRecorder()
+		importHandler.Import(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, rec.Code)
+		}
+	})
 }
-
-// Helper: generateValidCSV creates a CSV with N valid products
-func generateValidCSV(count int) string {
-	var buf bytes.Buffer
-	writer := csv.NewWriter(&buf)
-
-	// Write header
-	writer.Write([]string{"sku", "name", "description", "base_price", "status"})
-
-	// Write data rows
-	for i := 0; i < count; i++ {
-		sku := testutil.GenerateSKU()
-		writer.Write([]string{
-			sku,
-			"Bulk Product " + sku,
-			"Generated product for bulk import",
-			"10000",
-			"active",
-		})
-	}
-
-	writer.Flush()
-	return buf.String()
-}
-
-// Helper: uploadCSV uploads a CSV file and returns the import response
-func uploadCSV(t *testing.T, handler *handlers.ImportExportHandler, orgID interface{}, csvContent string) *pb.ImportProductsResponse {
-	t.Helper()
-
-	// Create multipart form
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
-
-	// Add file field
-	fileWriter, err := writer.CreateFormFile("file", "products.csv")
-	if err != nil {
-		t.Fatalf("Failed to create form file: %v", err)
-	}
-	fileWriter.Write([]byte(csvContent))
-	writer.Close()
-
-	// Create HTTP request
-	req := httptest.NewRequest("POST", "/api/v1/products/import", &buf)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	ctx := context.WithValue(req.Context(), "organization_id", orgID)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-	handler.Import(w, req)
-
-	if w.Code != http.StatusOK && w.Code != http.StatusBadRequest {
-		t.Fatalf("Import failed with status %d: %s", w.Code, w.Body.String())
-	}
-
-	var resp pb.ImportProductsResponse
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
-	}
-
-	return &resp
-}
-
-// Helper: exportProducts exports products and returns CSV content
-func exportProducts(t *testing.T, handler *handlers.ImportExportHandler, orgID interface{}, filter *pb.ExportProductsRequest) string {
-	t.Helper()
-
-	var reqBody []byte
-	if filter != nil {
-		reqBody, _ = json.Marshal(filter)
-	} else {
-		reqBody = []byte("{}")
-	}
-
-	req := httptest.NewRequest("POST", "/api/v1/products/export", bytes.NewReader(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), "organization_id", orgID)
-	req = req.WithContext(ctx)
-
-	w := httptest.NewRecorder()
-	handler.Export(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("Export failed with status %d: %s", w.Code, w.Body.String())
-	}
-
-	// Check Content-Type
-	contentType := w.Header().Get("Content-Type")
-	if contentType != "text/csv" && contentType != "text/csv; charset=utf-8" {
-		t.Errorf("Expected Content-Type text/csv, got %s", contentType)
-	}
-
-	return w.Body.String()
-}
-

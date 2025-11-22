@@ -67,7 +67,8 @@ func main() {
 	variantService := services.NewVariantService(db)
 	assetService := services.NewAssetService(db, cfg.AssetStoragePath)
 	searchService := services.NewSearchService(db)
-	importExportService := services.NewImportExportService(db)
+	importService := services.NewImportService(db, productService)
+	exportService := services.NewExportService(db)
 
 	// Create handlers
 	productHandler := handlers.NewProductHandler(productService)
@@ -75,12 +76,13 @@ func main() {
 	variantHandler := handlers.NewVariantHandler(variantService, productService)
 	assetHandler := handlers.NewAssetHandler(assetService, productService)
 	searchHandler := handlers.NewSearchHandler(searchService)
-	importExportHandler := handlers.NewImportExportHandler(importExportService, productService)
+	importHandler := handlers.NewImportHandler(importService)
+	exportHandler := handlers.NewExportHandler(exportService)
 
 	// Register import/export endpoints
 	mux.HandleFunc("/api/v1/products/import", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			importExportHandler.Import(w, r)
+			importHandler.Import(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -88,7 +90,7 @@ func main() {
 
 	mux.HandleFunc("/api/v1/products/import/validate", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			importExportHandler.Validate(w, r)
+			importHandler.Validate(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -96,7 +98,7 @@ func main() {
 
 	mux.HandleFunc("/api/v1/products/import/template", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			importExportHandler.GetTemplate(w, r)
+			importHandler.GetTemplate(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -104,7 +106,7 @@ func main() {
 
 	mux.HandleFunc("/api/v1/products/export", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			importExportHandler.Export(w, r)
+			exportHandler.Export(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -126,20 +128,6 @@ func main() {
 			productHandler.Create(w, r)
 		case http.MethodGet:
 			productHandler.List(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-
-	mux.HandleFunc("/api/v1/products/", func(w http.ResponseWriter, r *http.Request) {
-		// Handle /api/v1/products/{id}
-		switch r.Method {
-		case http.MethodGet:
-			productHandler.Get(w, r)
-		case http.MethodPut:
-			productHandler.Update(w, r)
-		case http.MethodDelete:
-			productHandler.Delete(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -335,4 +323,3 @@ func runMigrations(cfg *config.Config) {
 
 	log.Println("Migrations completed successfully")
 }
-

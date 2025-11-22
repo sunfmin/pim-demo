@@ -16,4 +16,3 @@ type SearchService interface {
 	// Filter applies filters without full-text search
 	Filter(ctx context.Context, orgID uuid.UUID, filter *pb.ProductsFilter, pagination *pb.PaginationRequest) ([]*models.Product, int64, error)
 }
-
