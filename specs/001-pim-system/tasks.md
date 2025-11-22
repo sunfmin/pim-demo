@@ -260,7 +260,7 @@ description: "Implementation tasks for PIM System feature"
 
 > **ACCEPTANCE SCENARIO COVERAGE (Principle XIII): Each acceptance scenario from spec.md MUST have a corresponding test**
 
-- [ ] T072 [US4] Create acceptance scenario test file `tests/integration/asset_test.go` with TestAssetAcceptanceScenarios function
+- [x] T072 [US4] Create acceptance scenario test file `tests/integration/asset_test.go` with TestAssetAcceptanceScenarios function
   - **Acceptance Scenario Tests (MANDATORY - table-driven design per Principle XIII)**:
     - Test function: `TestAssetAcceptanceScenarios` (table-driven)
     - Test case names: "US4-AS1: Upload image", "US4-AS2: Set primary image", "US4-AS3: Delete asset", "US4-AS4: Invalid format rejected"
@@ -274,24 +274,24 @@ description: "Implementation tasks for PIM System feature"
   - Exercise full stack: HTTP → AssetHandler → AssetService → Storage → Filesystem
   - Table-driven tests with comprehensive edge cases
 
-- [ ] T073 [US4] Create fixture helpers in `tests/testutil/fixtures.go` for Asset entity (CreateTestAsset, CreateTestImageFile)
+- [x] T073 [US4] Create fixture helpers in `tests/testutil/fixtures.go` for Asset entity (CreateTestAsset, CreateTestImageFile)
 
 ### Implementation for User Story 4
 
-- [ ] T074 [P] [US4] Create Asset GORM model in `internal/models/asset.go` (product_id FK, storage_path, content_type, file_size, asset_type, is_primary)
-- [ ] T075 [P] [US4] Define AssetService interface in `services/asset_service.go` (Upload, Get, Update, Delete, SetPrimary)
-- [ ] T076 [US4] Implement AssetService in `services/asset_service_impl.go` (file validation, storage integration, primary management)
-- [ ] T077 [US4] Add file type validation in AssetService.Upload (check MIME type against allowed list)
-- [ ] T078 [US4] Add file size validation in AssetService.Upload (10MB for images, 100MB for videos)
-- [ ] T079 [US4] Implement primary asset management in AssetService.SetPrimary (unset previous primary, set new)
-- [ ] T080 [US4] Add asset count validation in AssetService.Upload (max 50 per product)
-- [ ] T081 [US4] Integrate filesystem storage in AssetService (save file, generate storage path)
-- [ ] T082 [US4] Implement asset deletion in AssetService.Delete (remove from DB and filesystem)
-- [ ] T083 [US4] Create AssetHandler in `handlers/asset_handler.go` (multipart upload, download, CRUD)
-- [ ] T084 [US4] Add multipart form parsing in AssetHandler.Upload
-- [ ] T085 [US4] Register asset routes in `cmd/api/main.go`
-- [ ] T086 [US4] Update AutoMigrate to include Asset model
-- [ ] T087 [US4] Update Product model to include Assets relationship (hasMany GORM tag)
+- [x] T074 [P] [US4] Create Asset GORM model in `internal/models/asset.go` (product_id FK, storage_path, content_type, file_size, asset_type, is_primary)
+- [x] T075 [P] [US4] Define AssetService interface in `services/asset_service.go` (Upload, Get, Update, Delete, SetPrimary)
+- [x] T076 [US4] Implement AssetService in `services/asset_service_impl.go` (file validation, storage integration, primary management)
+- [x] T077 [US4] Add file type validation in AssetService.Upload (check MIME type against allowed list)
+- [x] T078 [US4] Add file size validation in AssetService.Upload (10MB for images, 100MB for videos)
+- [x] T079 [US4] Implement primary asset management in AssetService.SetPrimary (unset previous primary, set new)
+- [x] T080 [US4] Add asset count validation in AssetService.Upload (max 50 per product)
+- [x] T081 [US4] Integrate filesystem storage in AssetService (save file, generate storage path)
+- [x] T082 [US4] Implement asset deletion in AssetService.Delete (remove from DB and filesystem)
+- [x] T083 [US4] Create AssetHandler in `handlers/asset_handler.go` (multipart upload, download, CRUD)
+- [x] T084 [US4] Add multipart form parsing in AssetHandler.Upload
+- [x] T085 [US4] Register asset routes in `cmd/api/main.go`
+- [x] T086 [US4] Update AutoMigrate to include Asset model
+- [x] T087 [US4] Update Product model to include Assets relationship (hasMany GORM tag)
 
 **Checkpoint**: User Stories 1-4 independently functional - Products have complete media asset management
 

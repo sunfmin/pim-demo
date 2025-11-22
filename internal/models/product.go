@@ -36,6 +36,7 @@ type Product struct {
 	Organization Organization     `gorm:"foreignKey:OrganizationID"`
 	Categories   []Category        `gorm:"many2many:product_categories;"`
 	Variants     []ProductVariant  `gorm:"foreignKey:ParentProductID"`
+	Assets       []Asset           `gorm:"foreignKey:ProductID"`
 }
 
 // BeforeCreate hook to set UUID and default status if not provided

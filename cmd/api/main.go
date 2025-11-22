@@ -65,11 +65,13 @@ func main() {
 	productService := services.NewProductService(db)
 	categoryService := services.NewCategoryService(db)
 	variantService := services.NewVariantService(db)
+	assetService := services.NewAssetService(db, cfg.AssetStoragePath)
 
 	// Create handlers
 	productHandler := handlers.NewProductHandler(productService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	variantHandler := handlers.NewVariantHandler(variantService, productService)
+	assetHandler := handlers.NewAssetHandler(assetService, productService)
 
 	// Register product endpoints
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
@@ -165,10 +167,49 @@ func main() {
 		}
 	})
 
+	// Register asset endpoints
+	mux.HandleFunc("/api/v1/assets", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			assetHandler.Upload(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/assets/", func(w http.ResponseWriter, r *http.Request) {
+		// Check for specific sub-paths
+		if strings.HasSuffix(r.URL.Path, "/download") && r.Method == http.MethodGet {
+			assetHandler.Download(w, r)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/set-primary") && r.Method == http.MethodPost {
+			assetHandler.SetPrimary(w, r)
+			return
+		}
+
+		// Handle /api/v1/assets/{id}
+		switch r.Method {
+		case http.MethodGet:
+			assetHandler.Get(w, r)
+		case http.MethodPut:
+			assetHandler.Update(w, r)
+		case http.MethodDelete:
+			assetHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/v1/products/", func(w http.ResponseWriter, r *http.Request) {
 		// Check if this is a variants sub-resource request
 		if strings.HasSuffix(r.URL.Path, "/variants") && r.Method == http.MethodGet {
 			variantHandler.ListByProduct(w, r)
+			return
+		}
+
+		// Check if this is an assets sub-resource request
+		if strings.HasSuffix(r.URL.Path, "/assets") && r.Method == http.MethodGet {
+			assetHandler.ListByProduct(w, r)
 			return
 		}
 

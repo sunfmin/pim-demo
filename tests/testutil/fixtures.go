@@ -3,6 +3,7 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -220,5 +221,85 @@ func CreateTestVariantSet(t *testing.T, db *gorm.DB, parentProductID uuid.UUID, 
 	}
 
 	return variants
+}
+
+// CreateTestAsset creates a test asset in the database and filesystem
+func CreateTestAsset(t *testing.T, db *gorm.DB, productID uuid.UUID, orgID uuid.UUID, storageDir string, overrides map[string]interface{}) *models.Asset {
+	t.Helper()
+
+	// Generate unique storage path
+	assetID := uuid.New()
+	fileName := "test-asset.jpg"
+	if fn, ok := overrides["file_name"].(string); ok {
+		fileName = fn
+	}
+
+	storagePath := fmt.Sprintf("%s/%s/%s/%s", storageDir, orgID.String(), productID.String(), fileName)
+
+	// Ensure directory exists
+	os.MkdirAll(fmt.Sprintf("%s/%s/%s", storageDir, orgID.String(), productID.String()), 0755)
+
+	// Create fake file
+	os.WriteFile(storagePath, []byte("fake-file-content"), 0644)
+
+	asset := &models.Asset{
+		ID:             assetID,
+		OrganizationID: orgID,
+		ProductID:      productID,
+		FileName:       fileName,
+		StoragePath:    storagePath,
+		ContentType:    "image/jpeg",
+		FileSize:       100,
+		AssetType:      "image",
+		IsPrimary:      false,
+		DisplayOrder:   0,
+		AltText:        "",
+	}
+
+	// Apply overrides
+	if contentType, ok := overrides["content_type"].(string); ok {
+		asset.ContentType = contentType
+	}
+	if fileSize, ok := overrides["file_size"].(int64); ok {
+		asset.FileSize = fileSize
+	}
+	if assetType, ok := overrides["asset_type"].(string); ok {
+		asset.AssetType = assetType
+	}
+	if isPrimary, ok := overrides["is_primary"].(bool); ok {
+		asset.IsPrimary = isPrimary
+	}
+	if displayOrder, ok := overrides["display_order"].(int); ok {
+		asset.DisplayOrder = displayOrder
+	}
+	if altText, ok := overrides["alt_text"].(string); ok {
+		asset.AltText = altText
+	}
+
+	if err := db.Create(asset).Error; err != nil {
+		t.Fatalf("failed to create test asset: %v", err)
+	}
+
+	return asset
+}
+
+// CreateTestImageFile creates a temporary test image file
+func CreateTestImageFile(t *testing.T) (*os.File, func()) {
+	t.Helper()
+
+	tmpFile, err := os.CreateTemp("", "test-image-*.jpg")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	// Write fake JPEG header
+	tmpFile.Write([]byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46})
+
+	cleanup := func() {
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+	}
+
+	return tmpFile, cleanup
 }
 

@@ -28,8 +28,8 @@ func AutoMigrate(ctx context.Context, db *gorm.DB) error {
 		&models.Product{},
 		&models.ProductCategory{},
 		&models.ProductVariant{},
+		&models.Asset{},
 		// Additional models will be added here as they are created
-		// &models.Asset{},
 		// &models.AttributeDefinition{},
 	); err != nil {
 		return fmt.Errorf("failed to auto-migrate database: %w", err)
