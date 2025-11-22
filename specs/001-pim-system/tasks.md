@@ -96,7 +96,7 @@ description: "Implementation tasks for PIM System feature"
 > **All tests MUST use real PostgreSQL (Docker), table-driven pattern, and cover edge cases**
 > **ACCEPTANCE SCENARIO COVERAGE (Principle XIII): Each acceptance scenario from spec.md MUST have a corresponding test**
 
-- [ ] T030 [US1] Create acceptance scenario test file `tests/integration/product_test.go` with TestProductAcceptanceScenarios function
+- [x] T030 [US1] Create acceptance scenario test file `tests/integration/product_test.go` with TestProductAcceptanceScenarios function
   - **Acceptance Scenario Tests (MANDATORY - table-driven design per Principle XIII)**:
     - Test function: `TestProductAcceptanceScenarios` (table-driven)
     - Test case names: "US1-AS1: Create new product with required fields", "US1-AS2: Update product attributes", "US1-AS3: Soft-delete product", "US1-AS4: Duplicate SKU validation"
@@ -117,21 +117,21 @@ description: "Implementation tasks for PIM System feature"
   - Verify errors wrapped with `fmt.Errorf("%w", err)` and checked with `errors.Is()`
   - Table-driven test structure with comprehensive edge cases per constitution
 
-- [ ] T031 [US1] Create fixture helpers in `tests/testutil/fixtures.go` for Product entity (CreateTestProduct, CreateTestOrganization)
+- [x] T031 [US1] Create fixture helpers in `tests/testutil/fixtures.go` for Product entity (CreateTestProduct, CreateTestOrganization)
 
 ### Implementation for User Story 1
 
-- [ ] T032 [P] [US1] Create Product GORM model in `internal/models/product.go` (all fields from data-model.md, organization_id FK, soft delete support)
-- [ ] T033 [P] [US1] Define ProductService interface in `services/product_service.go` (Create, Get, Update, Delete methods with context.Context first parameter)
-- [ ] T034 [US1] Implement ProductService in `services/product_service_impl.go` (business logic, validation, GORM operations, error wrapping)
-- [ ] T035 [US1] Add SKU uniqueness validation in ProductService.Create (check duplicate within organization)
-- [ ] T036 [US1] Add required field validation in ProductService (SKU, name, description, price)
-- [ ] T037 [US1] Implement soft delete logic in ProductService.Delete (set deleted_at timestamp)
-- [ ] T038 [US1] Create ProductHandler in `handlers/product_handler.go` (ServeHTTP methods for POST, GET, PUT, DELETE)
-- [ ] T039 [US1] Add OpenTracing spans in ProductHandler (extract/start span, create child spans for service calls)
-- [ ] T040 [US1] Add request parsing and response formatting in ProductHandler (protobuf JSON marshaling)
-- [ ] T041 [US1] Register product routes in `cmd/api/main.go` with ServeMux
-- [ ] T042 [US1] Update AutoMigrate to include Product model
+- [x] T032 [P] [US1] Create Product GORM model in `internal/models/product.go` (all fields from data-model.md, organization_id FK, soft delete support)
+- [x] T033 [P] [US1] Define ProductService interface in `services/product_service.go` (Create, Get, Update, Delete methods with context.Context first parameter)
+- [x] T034 [US1] Implement ProductService in `services/product_service_impl.go` (business logic, validation, GORM operations, error wrapping)
+- [x] T035 [US1] Add SKU uniqueness validation in ProductService.Create (check duplicate within organization)
+- [x] T036 [US1] Add required field validation in ProductService (SKU, name, description, price)
+- [x] T037 [US1] Implement soft delete logic in ProductService.Delete (set deleted_at timestamp)
+- [x] T038 [US1] Create ProductHandler in `handlers/product_handler.go` (ServeHTTP methods for POST, GET, PUT, DELETE)
+- [x] T039 [US1] Add OpenTracing spans in ProductHandler (extract/start span, create child spans for service calls)
+- [x] T040 [US1] Add request parsing and response formatting in ProductHandler (protobuf JSON marshaling)
+- [x] T041 [US1] Register product routes in `cmd/api/main.go` with ServeMux
+- [x] T042 [US1] Update AutoMigrate to include Product model
 
 **Checkpoint**: User Story 1 complete and independently testable - Core product CRUD operations functional
 

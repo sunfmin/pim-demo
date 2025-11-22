@@ -60,6 +60,38 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(db)
 	mux.HandleFunc("/health", healthHandler.Health)
 
+	// Create services
+	productService := services.NewProductService(db)
+
+	// Create handlers
+	productHandler := handlers.NewProductHandler(productService)
+
+	// Register product endpoints
+	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			productHandler.Create(w, r)
+		case http.MethodGet:
+			productHandler.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/products/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle /api/v1/products/{id}
+		switch r.Method {
+		case http.MethodGet:
+			productHandler.Get(w, r)
+		case http.MethodPut:
+			productHandler.Update(w, r)
+		case http.MethodDelete:
+			productHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Apply middleware chain
 	handler := middleware.RecoveryMiddleware(
 		middleware.LoggingMiddleware(
