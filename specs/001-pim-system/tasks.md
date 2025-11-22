@@ -211,7 +211,7 @@ description: "Implementation tasks for PIM System feature"
 
 > **ACCEPTANCE SCENARIO COVERAGE (Principle XIII): Each acceptance scenario from spec.md MUST have a corresponding test**
 
-- [ ] T059 [US3] Create acceptance scenario test file `tests/integration/variant_test.go` with TestVariantAcceptanceScenarios function
+- [x] T059 [US3] Create acceptance scenario test file `tests/integration/variant_test.go` with TestVariantAcceptanceScenarios function
   - **Acceptance Scenario Tests (MANDATORY - table-driven design per Principle XIII)**:
     - Test function: `TestVariantAcceptanceScenarios` (table-driven)
     - Test case names: "US3-AS1: Generate variants from attributes", "US3-AS2: Parent update cascades", "US3-AS3: Variant-specific update", "US3-AS4: View all variants"
@@ -224,21 +224,21 @@ description: "Implementation tasks for PIM System feature"
   - Exercise full stack: HTTP → VariantHandler → VariantService → GORM
   - Table-driven tests with comprehensive edge cases
 
-- [ ] T060 [US3] Create fixture helpers in `tests/testutil/fixtures.go` for ProductVariant entity (CreateTestVariant, CreateTestVariantSet)
+- [x] T060 [US3] Create fixture helpers in `tests/testutil/fixtures.go` for ProductVariant entity (CreateTestVariant, CreateTestVariantSet)
 
 ### Implementation for User Story 3
 
-- [ ] T061 [P] [US3] Create ProductVariant GORM model in `internal/models/product_variant.go` (parent_product_id FK, variant_attributes JSONB, price_adjustment, inventory)
-- [ ] T062 [P] [US3] Define VariantService interface in `services/variant_service.go` (Create, Generate, Update, Delete, List)
-- [ ] T063 [US3] Implement VariantService in `services/variant_service_impl.go` (variant generation, attribute inheritance)
-- [ ] T064 [US3] Implement variant generation logic in VariantService.Generate (cartesian product of attribute values)
-- [ ] T065 [US3] Add SKU pattern generation in VariantService.Generate (e.g., {parent_sku}-{size}-{color})
-- [ ] T066 [US3] Implement attribute inheritance in VariantService (shared attributes from parent)
-- [ ] T067 [US3] Add variant SKU uniqueness validation (across all products, not just parent)
-- [ ] T068 [US3] Create VariantHandler in `handlers/variant_handler.go` (CRUD, generate, bulk operations)
-- [ ] T069 [US3] Register variant routes in `cmd/api/main.go`
-- [ ] T070 [US3] Update AutoMigrate to include ProductVariant model
-- [ ] T071 [US3] Update Product model to include Variants relationship (hasMany GORM tag)
+- [x] T061 [P] [US3] Create ProductVariant GORM model in `internal/models/product_variant.go` (parent_product_id FK, variant_attributes JSONB, price_adjustment, inventory)
+- [x] T062 [P] [US3] Define VariantService interface in `services/variant_service.go` (Create, Generate, Update, Delete, List)
+- [x] T063 [US3] Implement VariantService in `services/variant_service_impl.go` (variant generation, attribute inheritance)
+- [x] T064 [US3] Implement variant generation logic in VariantService.Generate (cartesian product of attribute values)
+- [x] T065 [US3] Add SKU pattern generation in VariantService.Generate (e.g., {parent_sku}-{size}-{color})
+- [x] T066 [US3] Implement attribute inheritance in VariantService (shared attributes from parent)
+- [x] T067 [US3] Add variant SKU uniqueness validation (across all products, not just parent)
+- [x] T068 [US3] Create VariantHandler in `handlers/variant_handler.go` (CRUD, generate, bulk operations)
+- [x] T069 [US3] Register variant routes in `cmd/api/main.go`
+- [x] T070 [US3] Update AutoMigrate to include ProductVariant model
+- [x] T071 [US3] Update Product model to include Variants relationship (hasMany GORM tag)
 
 **Checkpoint**: User Stories 1, 2, AND 3 independently functional - Products support variants with pricing
 

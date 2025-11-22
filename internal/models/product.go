@@ -33,8 +33,9 @@ type Product struct {
 	DeletedAt      gorm.DeletedAt `gorm:"index"`
 
 	// Relationships
-	Organization Organization `gorm:"foreignKey:OrganizationID"`
-	Categories   []Category   `gorm:"many2many:product_categories;"`
+	Organization Organization     `gorm:"foreignKey:OrganizationID"`
+	Categories   []Category        `gorm:"many2many:product_categories;"`
+	Variants     []ProductVariant  `gorm:"foreignKey:ParentProductID"`
 }
 
 // BeforeCreate hook to set UUID and default status if not provided

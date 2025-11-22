@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -63,10 +64,12 @@ func main() {
 	// Create services
 	productService := services.NewProductService(db)
 	categoryService := services.NewCategoryService(db)
+	variantService := services.NewVariantService(db)
 
 	// Create handlers
 	productHandler := handlers.NewProductHandler(productService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
+	variantHandler := handlers.NewVariantHandler(variantService, productService)
 
 	// Register product endpoints
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +126,60 @@ func main() {
 			categoryHandler.Update(w, r)
 		case http.MethodDelete:
 			categoryHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Register variant endpoints
+	mux.HandleFunc("/api/v1/variants", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			variantHandler.Create(w, r)
+		case http.MethodGet:
+			variantHandler.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/variants/generate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			variantHandler.Generate(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/variants/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle /api/v1/variants/{id}
+		switch r.Method {
+		case http.MethodGet:
+			variantHandler.Get(w, r)
+		case http.MethodPut:
+			variantHandler.Update(w, r)
+		case http.MethodDelete:
+			variantHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/products/", func(w http.ResponseWriter, r *http.Request) {
+		// Check if this is a variants sub-resource request
+		if strings.HasSuffix(r.URL.Path, "/variants") && r.Method == http.MethodGet {
+			variantHandler.ListByProduct(w, r)
+			return
+		}
+
+		// Handle /api/v1/products/{id}
+		switch r.Method {
+		case http.MethodGet:
+			productHandler.Get(w, r)
+		case http.MethodPut:
+			productHandler.Update(w, r)
+		case http.MethodDelete:
+			productHandler.Delete(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

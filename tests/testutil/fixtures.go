@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -158,5 +160,65 @@ func CreateTestCategoryTree(t *testing.T, db *gorm.DB, orgID uuid.UUID) (*models
 	})
 
 	return root, child, grandchild
+}
+
+// CreateTestVariant creates a test product variant in the database
+func CreateTestVariant(t *testing.T, db *gorm.DB, parentProductID uuid.UUID, orgID uuid.UUID, overrides map[string]interface{}) *models.ProductVariant {
+	t.Helper()
+
+	variant := &models.ProductVariant{
+		OrganizationID:    orgID,
+		ParentProductID:   parentProductID,
+		VariantSKU:        "TEST-VARIANT-" + uuid.New().String()[:8],
+		VariantAttributes: datatypes.JSON([]byte("{}")),
+		PriceAdjustment:   0,
+		InventoryQuantity: 100,
+		IsActive:          true,
+	}
+
+	// Apply overrides
+	if variantSKU, ok := overrides["variant_sku"].(string); ok {
+		variant.VariantSKU = variantSKU
+	}
+	if variantAttributes, ok := overrides["variant_attributes"].(datatypes.JSON); ok {
+		variant.VariantAttributes = variantAttributes
+	}
+	if priceAdjustment, ok := overrides["price_adjustment"].(int64); ok {
+		variant.PriceAdjustment = priceAdjustment
+	}
+	if inventoryQuantity, ok := overrides["inventory_quantity"].(int32); ok {
+		variant.InventoryQuantity = inventoryQuantity
+	}
+	if isActive, ok := overrides["is_active"].(bool); ok {
+		variant.IsActive = isActive
+	}
+
+	if err := db.Create(variant).Error; err != nil {
+		t.Fatalf("failed to create test variant: %v", err)
+	}
+
+	return variant
+}
+
+// CreateTestVariantSet creates multiple variants for a parent product
+func CreateTestVariantSet(t *testing.T, db *gorm.DB, parentProductID uuid.UUID, orgID uuid.UUID, sizes []string, colors []string) []*models.ProductVariant {
+	t.Helper()
+
+	variants := make([]*models.ProductVariant, 0)
+	for _, size := range sizes {
+		for _, color := range colors {
+			attributesJSON, _ := json.Marshal(map[string]string{
+				"size":  size,
+				"color": color,
+			})
+			variant := CreateTestVariant(t, db, parentProductID, orgID, map[string]interface{}{
+				"variant_sku":        fmt.Sprintf("VARIANT-%s-%s-%s", size, color, uuid.New().String()[:4]),
+				"variant_attributes": datatypes.JSON(attributesJSON),
+			})
+			variants = append(variants, variant)
+		}
+	}
+
+	return variants
 }
 
