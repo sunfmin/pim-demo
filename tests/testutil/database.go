@@ -10,7 +10,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"github.com/yourorg/pim-demo/services"
-	"gorm.io/driver/postgresDriver"
+	postgresDriver "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -73,13 +73,15 @@ func TruncateTables(db *gorm.DB, tables ...string) error {
 
 	// If no specific tables provided, truncate all in reverse order
 	if len(tables) == 0 {
+		// Only include tables that currently exist (Phase 3 MVP only has products and organizations)
 		tables = []string{
-			"assets",
-			"product_variants",
-			"product_categories",
-			"categories",
 			"products",
 			"organizations",
+			// Tables below will be added as features are implemented:
+			// "assets",
+			// "product_variants",
+			// "product_categories",
+			// "categories",
 		}
 	}
 

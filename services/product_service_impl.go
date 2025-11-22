@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -318,7 +319,13 @@ func convertAttributesToJSON(attributes map[string]*pb.AttributeValue) (datatype
 		}
 	}
 
-	return datatypes.JSON(simpleMap), nil
+	// Marshal map to JSON bytes
+	jsonBytes, err := json.Marshal(simpleMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal attributes to JSON: %w", err)
+	}
+
+	return datatypes.JSON(jsonBytes), nil
 }
 
 func convertJSONToAttributes(jsonData datatypes.JSON) map[string]*pb.AttributeValue {

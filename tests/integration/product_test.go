@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	pb "github.com/yourorg/pim-demo/api/gen/v1"
 	"github.com/yourorg/pim-demo/handlers"
+	"github.com/yourorg/pim-demo/internal/middleware"
 	"github.com/yourorg/pim-demo/internal/models"
 	"github.com/yourorg/pim-demo/services"
 	"github.com/yourorg/pim-demo/tests/testutil"
@@ -31,6 +31,12 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 	// Create service and handler
 	productService := services.NewProductService(db)
 	productHandler := handlers.NewProductHandler(productService)
+
+	// Helper function to add organization ID to request context
+	addOrgContext := func(r *http.Request, orgID uuid.UUID) *http.Request {
+		ctx := context.WithValue(r.Context(), middleware.OrganizationIDKey, orgID)
+		return r.WithContext(ctx)
+	}
 
 	testCases := []struct {
 		name     string
@@ -55,7 +61,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				requestBody, _ := json.Marshal(requestData)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Organization-ID", org.ID.String())
+				req = addOrgContext(req, org.ID)
 
 				// Execute request
 				rec := httptest.NewRecorder()
@@ -95,7 +101,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 
 				// Verify product appears in list
 				listReq := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
-				listReq.Header.Set("X-Organization-ID", org.ID.String())
+				listReq = addOrgContext(listReq, org.ID)
 				listRec := httptest.NewRecorder()
 				productHandler.List(listRec, listReq)
 
@@ -113,8 +119,11 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				defer testutil.TruncateTables(db)
 
+				// Recreate organization for this test
+				testOrg := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
 				// Create existing product
-				existingProduct := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+				existingProduct := testutil.CreateTestProduct(t, db, testOrg.ID, map[string]interface{}{
 					"sku":  "LAPTOP-002",
 					"name": "Original Name",
 				})
@@ -131,7 +140,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				requestBody, _ := json.Marshal(updateRequest)
 				req := httptest.NewRequest(http.MethodPut, "/api/v1/products/"+existingProduct.ID.String(), bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Organization-ID", org.ID.String())
+				req = addOrgContext(req, testOrg.ID)
 
 				// Execute request
 				rec := httptest.NewRecorder()
@@ -146,15 +155,26 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				json.NewDecoder(rec.Body).Decode(&response)
 
 				// Build expected from fixtures
+				// Convert model status to proto status
+				var protoStatus pb.ProductStatus
+				switch existingProduct.Status {
+				case models.ProductStatusActive:
+					protoStatus = pb.ProductStatus_PRODUCT_STATUS_ACTIVE
+				case models.ProductStatusDiscontinued:
+					protoStatus = pb.ProductStatus_PRODUCT_STATUS_DISCONTINUED
+				default:
+					protoStatus = pb.ProductStatus_PRODUCT_STATUS_DRAFT
+				}
+
 				expected := &pb.UpdateProductResponse{
 					Product: &pb.Product{
 						Id:             existingProduct.ID.String(),     // From database fixture
-						OrganizationId: org.ID.String(),                 // From test fixture
+						OrganizationId: testOrg.ID.String(),             // From test fixture
 						Sku:            existingProduct.SKU,             // From database fixture (unchanged)
 						Name:           updateRequest.Name,              // From request fixture
 						Description:    updateRequest.Description,       // From request fixture
 						BasePrice:      updateRequest.BasePrice,         // From request fixture
-						Status:         pb.ProductStatus(existingProduct.Status), // From database fixture (unchanged)
+						Status:         protoStatus,                     // From database fixture (unchanged)
 						Attributes:     make(map[string]*pb.AttributeValue),
 						CategoryIds:    []string{},
 						CreatedAt:      response.Product.CreatedAt, // Use from response (not changed)
@@ -178,14 +198,17 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				defer testutil.TruncateTables(db)
 
+				// Recreate organization for this test
+				testOrg := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
 				// Create existing product
-				existingProduct := testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+				existingProduct := testutil.CreateTestProduct(t, db, testOrg.ID, map[string]interface{}{
 					"sku": "LAPTOP-003",
 				})
 
 				// Delete product
 				req := httptest.NewRequest(http.MethodDelete, "/api/v1/products/"+existingProduct.ID.String(), nil)
-				req.Header.Set("X-Organization-ID", org.ID.String())
+				req = addOrgContext(req, testOrg.ID)
 
 				rec := httptest.NewRecorder()
 				productHandler.Delete(rec, req)
@@ -204,7 +227,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 
 				// Verify product no longer appears in list
 				listReq := httptest.NewRequest(http.MethodGet, "/api/v1/products", nil)
-				listReq.Header.Set("X-Organization-ID", org.ID.String())
+				listReq = addOrgContext(listReq, testOrg.ID)
 				listRec := httptest.NewRecorder()
 				productHandler.List(listRec, listReq)
 
@@ -233,9 +256,12 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				defer testutil.TruncateTables(db)
 
+				// Recreate organization for this test
+				testOrg := testutil.CreateTestOrganization(t, db, map[string]interface{}{})
+
 				// Create existing product with SKU
 				existingSKU := "LAPTOP-004"
-				testutil.CreateTestProduct(t, db, org.ID, map[string]interface{}{
+				testutil.CreateTestProduct(t, db, testOrg.ID, map[string]interface{}{
 					"sku": existingSKU,
 				})
 
@@ -250,7 +276,7 @@ func TestProductAcceptanceScenarios(t *testing.T) {
 				requestBody, _ := json.Marshal(requestData)
 				req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("X-Organization-ID", org.ID.String())
+				req = addOrgContext(req, testOrg.ID)
 
 				rec := httptest.NewRecorder()
 				productHandler.Create(rec, req)
@@ -301,7 +327,8 @@ func TestProductEdgeCases(t *testing.T) {
 
 		requestBody, _ := json.Marshal(requestData)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
-		req.Header.Set("X-Organization-ID", org.ID.String())
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
 
 		rec := httptest.NewRecorder()
 		productHandler.Create(rec, req)
@@ -320,7 +347,8 @@ func TestProductEdgeCases(t *testing.T) {
 
 		requestBody, _ := json.Marshal(requestData)
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/products", bytes.NewReader(requestBody))
-		req.Header.Set("X-Organization-ID", org.ID.String())
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
 
 		rec := httptest.NewRecorder()
 		productHandler.Create(rec, req)
@@ -333,7 +361,8 @@ func TestProductEdgeCases(t *testing.T) {
 	t.Run("Non-existent product returns 404", func(t *testing.T) {
 		nonExistentID := uuid.New()
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/products/"+nonExistentID.String(), nil)
-		req.Header.Set("X-Organization-ID", org.ID.String())
+		ctx := context.WithValue(req.Context(), middleware.OrganizationIDKey, org.ID)
+		req = req.WithContext(ctx)
 
 		rec := httptest.NewRecorder()
 		productHandler.Get(rec, req)
